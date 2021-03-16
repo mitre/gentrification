@@ -1,0 +1,181 @@
+---
+title: "Preliminary Model Evaluation"
+author: "Karen Jiang"
+date: "3/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+
+data <- readRDS("outputs/outcomes.RDS")
+
+data <- data %>% 
+  mutate(holc_graded = ifelse(is.na(holc_grade_pop), F, T))
+```
+
+
+```{r}
+data %>%
+  group_by(holc_graded, gentrified) %>%
+  count() %>%
+  ggplot() +
+  geom_col(aes(x = holc_graded, y = n, fill = gentrified), position = "fill", width = 0.6) +
+  theme_minimal() +
+  labs(x = "HOLC Graded",
+       y = "% of Tracts",
+       fill = "Gentrified")
+```
+
+```{r}
+data %>%
+  filter(holc_graded == T) %>%
+  filter(!is.na(gentrified)) %>%
+  ggplot(aes()) +
+  geom_histogram(aes(x = holc_grade_pop, fill = gentrified))
+```
+
+
+
+```{r}
+data %>%
+  ggplot() +
+  geom_histogram(aes(x = CASTHMA_CrudePrev))
+```
+```{r}
+data %>%
+  filter(holc_grade_pop == 4) %>%
+  ggplot() +
+  geom_density(aes(x = COPD_CrudePrev, fill = gentrified), alpha = 0.5)
+```
+
+```{r}
+red_gent <- data %>% filter(holc_grade_pop == 4,
+                gentrified == T) %>%
+  select(COPD_CrudePrev, CASTHMA_CrudePrev)
+
+red_nogent <- data %>% filter(holc_grade_pop == 4,
+                gentrified == F) %>%
+  select(COPD_CrudePrev, CASTHMA_CrudePrev)
+
+t.test(red_gent$COPD_CrudePrev, red_nogent$COPD_CrudePrev)
+t.test(red_gent$CASTHMA_CrudePrev, red_nogent$CASTHMA_CrudePrev)
+
+
+nored_gent <- data %>% filter(holc_grade_pop == 1,
+                gentrified == T) %>%
+  select(COPD_CrudePrev, CASTHMA_CrudePrev)
+
+nored_nogent <- data %>% filter(holc_grade_pop == 1,
+                gentrified == F) %>%
+  select(COPD_CrudePrev, CASTHMA_CrudePrev)
+
+
+t.test(nored_gent$COPD_CrudePrev, nored_nogent$COPD_CrudePrev)
+t.test(nored_gent$CASTHMA_CrudePrev, nored_nogent$CASTHMA_CrudePrev)
+```
+In gentrified areas, no difference between redlined and not redlined areas
+
+```{r}
+t.test(red_gent$COPD_CrudePrev, nored_gent$COPD_CrudePrev)
+t.test(red_gent$CASTHMA_CrudePrev, nored_gent$CASTHMA_CrudePrev)
+
+```
+
+In non-gentrified areas, the difference between redlined and not redlined areas
+```{r}
+t.test(red_nogent$COPD_CrudePrev, nored_nogent$COPD_CrudePrev)
+t.test(red_nogent$CASTHMA_CrudePrev, nored_nogent$CASTHMA_CrudePrev)
+```
+
+```{r}
+data %>%
+  filter(holc_grade_pop < 3) %>%
+  ggplot() +
+  geom_density(aes(x = COPD_CrudePrev, fill = gentrified), alpha = 0.5)
+```
+
+
+```{r}
+colnames(data)
+ggplot(data, aes(x = holc_grade_pop)) +
+  geom_histogram(aes(fill = gentrified)) +
+  facet_grid(~gentrified)
+```
+```{r}
+ggplot(data, aes(x = holc_grade_pop, y = CASTHMA_CrudePrev, group = gentrified))+
+  geom_point(aes(color = gentrified), alpha = 0.2) +
+  geom_smooth(method = "lm", se = F) +
+  facet_grid(~gentrified) +
+  theme_minimal() +
+  labs(x = "HOLC Grades", 
+       y = "Asthma Prevalence",
+       title = "Interaction between Redlining and Gentrification on Asthma") 
+
+ggsave("outputs/regression.png")
+```
+
+```{r}
+data %>%
+  group_by(gentrified) %>%
+  filter(holc_grade_pop == 1) %>%
+  summarize(mean_asthma = mean(CASTHMA_CrudePrev, na.rm = T),
+            mean_copd = mean(COPD_CrudePrev, na.rm = T))
+
+data %>%
+  group_by(gentrified) %>%
+  filter(holc_grade_pop == 4) %>%
+  summarize(mean_asthma = mean(CASTHMA_CrudePrev, na.rm = T),
+            mean_copd = mean(COPD_CrudePrev, na.rm = T))
+  
+```
+
+
+```{r}
+base_model <- lm(CASTHMA_CrudePrev ~ holc_grade_pop, data)
+summary(base_model)
+```
+
+```{r}
+cov_model <- lm(CASTHMA_CrudePrev ~ holc_grade_pop + gentrified, data)
+summary(cov_model)
+```
+
+```{r}
+interact_mod <- lm(CASTHMA_CrudePrev ~ holc_grade_pop * gentrified, data)
+summary(interact_mod)
+```
+
+```{r}
+data %>% 
+  group_by(gentrified) %>% 
+  filter(holc_grade_pop >= 4) %>%
+  summarize(mean_asthma = mean(CASTHMA_CrudePrev, na.rm = T),
+            mean_copd = mean(COPD_CrudePrev, na.rm = T))
+
+```
+
+
+```{r}
+base_model <- lm(COPD_CrudePrev ~ holc_grade_pop, data)
+summary(base_model)
+```
+
+
+```{r}
+cov_model <- lm(COPD_CrudePrev ~ holc_grade_pop + gentrified, data)
+summary(cov_model)
+```
+
+
+```{r}
+int_model <- lm(COPD_CrudePrev ~ holc_grade_pop * gentrified, data)
+summary(int_model)
+```
+
+```{r}
+ggplot()
+```
+
