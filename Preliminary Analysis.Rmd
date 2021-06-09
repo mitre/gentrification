@@ -9,7 +9,6 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
-
 data <- readRDS("outputs/outcomes.RDS")
 
 data <- data %>% 
@@ -45,10 +44,23 @@ data %>%
   geom_histogram(aes(x = CASTHMA_CrudePrev))
 ```
 ```{r}
+
 data %>%
-  filter(holc_grade_pop == 4) %>%
+  filter(gentrified == T) %>%
+  mutate(holc_factors = case_when(holc_grade_pop == 4 ~ "redlined",
+                                  holc_grade_pop < 2 ~ "not redlined")) %>%
+  filter(!is.na(holc_grade_pop)) %>%
   ggplot() +
-  geom_density(aes(x = COPD_CrudePrev, fill = gentrified), alpha = 0.5)
+  geom_histogram(aes(x = COPD_CrudePrev, fill = as.factor(holc_factors)), alpha = 0.5, na.rm = T)
+
+
+data %>%
+  filter(gentrified == F) %>%
+  mutate(holc_factors = case_when(holc_grade_pop == 4 ~ "redlined",
+                                  holc_grade_pop < 2 ~ "not redlined")) %>%
+  filter(!is.na(holc_grade_pop)) %>%
+  ggplot() +
+  geom_histogram(aes(x = COPD_CrudePrev, fill = as.factor(holc_factors)), alpha = 0.5, na.rm = T)
 ```
 
 ```{r}
