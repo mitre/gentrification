@@ -1,5 +1,5 @@
 ---
-title: "Gentrification"
+title: "Gentrification Assignment"
 author: "Karen Jiang"
 date: "2/11/2021"
 output: html_document
