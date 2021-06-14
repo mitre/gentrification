@@ -1,5 +1,9 @@
 # Processing LTDB to clean format
 
+## Identifies common columns between 1970 - 2000, need to use ACS for 2010 estimates
+## https://s4.ad.brown.edu/projects/diversity/researcher/List%20of%20Available%20Variables.pdf
+## https://s4.ad.brown.edu/projects/diversity/Researcher/LTBDDload/Dfiles/codebooks.pdf
+
 library(foreign)
 library(tidyverse)
 
@@ -10,16 +14,6 @@ if (getwd() != "/Users/kjiang/Documents/MIP/gentrification") {
 # Read in Tract Files from 1970 - 2010
 filenames <- list.files("raw data/LTDB", pattern = "*.dbf", full.names = T)
 ltdb <- lapply(filenames, read.dbf)
-
-## Identifies common columns between 1970 - 2000, need to use ACS for 2010 estimates
-## https://s4.ad.brown.edu/projects/diversity/researcher/List%20of%20Available%20Variables.pdf
-## https://s4.ad.brown.edu/projects/diversity/Researcher/LTBDDload/Dfiles/codebooks.pdf
-intersect_cn <- gsub('[0-9]+',"", colnames(ltdb[[1]]))
-for (i in length(ltdb)) {
-  cn <- colnames(ltdb[[i]])
-  abb_cn <- gsub('$[0-9]+{2}',"",cn)
-  intersect_cn <- intersect(abb_cn, intersect_cn)
-}
 
 # Remove last two year numbers from column names
 for (i in 1:5) {
@@ -50,6 +44,7 @@ cname_map <- tibble(
   "PNAPOV" = "Percent in Poverty, Native American",
   "PHPOV" = "Percent in Poverty, Hispanic",
   "PAPOV" = "Percent in Poverty, Asian/PI",
+  
   "POWN" = "Percent Owner-Occupied Units",
   "PVAC" = "Percent Vacant Units",
   "PMULTI" = "Percent Multi-Family Units",
@@ -89,21 +84,18 @@ state_names <- ltdb_combined %>%
 
 county_names <- ltdb_combined %>% 
   clean_ids() %>%
-  select(3:6) %>%
+  select(4:6) %>%
   na.omit() %>%
   unique()
 
 # Recreate GEOID     
-ltdb_combined %>%
-  select(1:7) %>%
+ltdb_combined <- ltdb_combined %>%
   clean_ids() %>%
-  mutate(STATE = ifelse(is.na(STATE), 
-                        state_names$STATE[match(STATEA,state_names$STATEA)],
-                        STATE))
-  mutate(COUNTY = ifelse(is.na(COUNTY),
-                         county_names$COUNTY[match(paste0(STATEA, COUNTYA),
-                                                   paste0(county_names$STATEA,
-                                                          county_names$COUNTYA)
-                                                   )],
-                         COUNTY))
-  
+  left_join(state_names, by = "STATEA", suffix = c("_old", "")) %>%
+  left_join(county_names, by = c("STATEA", "COUNTYA"), suffix = c("_old", "")) %>%
+  select(YEAR, STATE, COUNTY, GEOID, cname_map$readable)
+ 
+
+# Write Out data  
+write.csv(ltdb_combined, "outputs/ltdb_combined.csv" )
+write_rds(ltdb_combined, "outputs/ltdb_combined.RDS")

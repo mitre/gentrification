@@ -4,5 +4,11 @@
 .Ruserdata
 
 *.Rproj
+*.dbf
+*.csv
+*.xlsx
+*.RDS
 
-data/
+raw data/
+
+.DS_Store
