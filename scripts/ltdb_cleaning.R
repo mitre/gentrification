@@ -30,6 +30,8 @@ ltdb_combined <- bind_rows(ltdb)
 
 # Rename columns for selected data
 cname_map <- tibble(
+  "POP" = "Total Pop",
+  
   "HINC" = "Median Household Income, Total",
   "HINCW" = "Median Household Income, White",
   "HINCB" = "Median Household Income, Black",

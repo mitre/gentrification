@@ -1,18 +1,19 @@
+# Replicating methods for Gentrification assignment from Governing website
+
 ## Load Libraries
 library(tidyverse)
 library(tidycensus)
 library(readxl)
 library(foreign)
-
 library(censusapi)
 
 setwd("Documents/MIP/gentrification/")
 
-## Redlining Data
+## Redlining Data (Present Day CT)
 redlining <-
   read.csv("data/All_Population_Weighted_HOLC_Grades_pt2_Threshold.csv")
 
-## Outcomes
+## Outcomes (Present Day CT)
 places <-
   read.csv("data/PLACES__Census_Tract_Data__GIS_Friendly_Format___2020_release.csv")
 
@@ -36,6 +37,8 @@ acs <- get_acs(
 )
 
 years <- seq(1970, 2010, 10)
+
+## Get data from Decennial (1970 - 2010)
 pull_dec <- function(year){
   get_decennial(
   geography = "tract",
@@ -50,12 +53,11 @@ pull_dec <- function(year){
   )
 )
 }
-
-
-test <- get_decennial(
+pull_dec_sf <- function(year){
+  get_decennial(
   geography = "tract",
   output = "wide",
-  year = 2010,
+  year = year,
   sumfile = "sf1",
   state = state.abb,
   variables = c(
@@ -77,6 +79,7 @@ test <- get_decennial(
     `N Population White Nonhispanic` = "P005002" #Total!!Not Hispanic or Latino!!White alone	
   )
 )
+}
 
 ## Gentrification Eligibility
 
