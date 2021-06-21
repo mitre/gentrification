@@ -56,11 +56,7 @@ cname_map <- tibble(
   
   "PHS" = "Percent with High School Degree or Less",
   "PCOL" = "Percent with 4-year College Degree or More",
-  "PUNEMP" = "Percent Unemployed",
-  "PFLABF" = "Percent Female Labor Force Particiaption",
-  "PVET" = "Percent Veteran",
-  "PDIS" = "Percent Disability",
-  "PSEMP" = "Percent Self-Employed"
+  "PUNEMP" = "Percent Unemployed"
 ) %>%
   pivot_longer(names_to = "original", values_to =  "readable", cols = everything())
 
