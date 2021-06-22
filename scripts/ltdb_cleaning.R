@@ -67,7 +67,10 @@ ltdb_combined <- ltdb_combined %>%
 
 # Get values to fill in missing State and County names
 clean_ids <- function(data){
+
   data %>%
+  mutate_at(c("STATEA", "COUNTYA", "TRACTA"), as.character) %>%
+  filter_at(c("STATEA", "COUNTYA", "TRACTA"), is.na) %>%
   mutate(STATEA = substr(STATEA, 1,2),
           COUNTYA = substr(COUNTYA, 1,3),
           TRACTA = str_pad(TRACTA, width = 6, side = "left", pad = "0"),
