@@ -36,6 +36,7 @@ acs_2019_processed <- readRDS("outputs/acs_2019.RDS")
 ltdb <- bind_rows(ltdb, acs_2012_processed, acs_2019_processed)
 ltdb$YEAR = as.numeric(ltdb$YEAR)
 ltdb$COUNTY = tools::toTitleCase(ltdb$COUNTY)
+
 ```
 
 Idea:
@@ -126,5 +127,54 @@ education %>%
   geom_point( alpha = 0.4) +
   geom_smooth(method = "lm") +
   facet_grid(~redlined)
+
+```
+
+## Poverty
+
+```{r}
+poverty <- left_join(ltdb, redlining, by = "GEOID") %>%
+  mutate(redlined = case_when(holc_grade_pop == 4 ~ "Redlined",
+                              holc_grade_pop > 0 & holc_grade_pop < 4 ~ "Not Redlined",
+                              TRUE ~ "Ungraded")) %>%
+  group_by(YEAR, STATE, COUNTY, redlined) %>%
+  filter(redlined != "Ungraded") %>%
+  summarize(Total = mean(`Percent in Poverty, Total`, na.rm = T),
+            Black = mean(`Percent in Poverty, Black`, na.rm = T),
+            White = mean(`Percent in Poverty, White`, na.rm = T),
+            Native = mean(`Percent in Poverty, Native American`, na.rm = T),
+            Hispanic = mean(`Percent in Poverty, Hispanic`, na.rm = T),
+            `Asian/PI` = mean(`Percent in Poverty, Asian/PI`, na.rm = T)
+            ) %>%
+  gather(key = "Race / Ethnicity", 
+         value = "Percent in Poverty", 
+         c(Total, Black, White, Native, Hispanic, `Asian/PI`)) %>%
+  mutate(`Race / Ethnicity` = factor(`Race / Ethnicity`, levels = c("Asian/PI", "Black", "Hispanic", "Native", "White", "Total")))
+
+percent_in_poverty_plot <- function(State){
+  poverty %>%
+  filter(STATE == State,
+         `Race / Ethnicity` %in% c("Black", "White", "Total")) %>%
+  ggplot(aes(x = YEAR, y = `Percent in Poverty`, color = `Race / Ethnicity`))  +
+  geom_point() +
+  geom_line(aes(linetype = redlined)) +
+  facet_grid( ~COUNTY)
+}
+```
+
+```{r}
+percent_in_poverty_plot("Alabama")
+```
+
+```{r}
+poverty %>%
+  filter(`Race / Ethnicity` %in% c("Black", "White", "Total")) %>%
+  ggplot(aes(x = YEAR, y = `Percent in Poverty`, color = `Race / Ethnicity`)) + 
+  geom_jitter(alpha = 0.3) +
+  geom_smooth(method = "lm") +
+  facet_grid(~ redlined)
+```
+
+```{r}
 
 ```

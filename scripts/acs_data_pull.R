@@ -5,15 +5,18 @@ library(tidyverse)
 
 # Get present day ACS data -------
 
-
 get_acs_vars <- function(year){
   get_acs(
     geography = "tract",
     state = state.abb,
+    #cache_table = T,
     survey = "acs5",
     output = "wide",
     year = year,
     variables = c(
+      # Vars from tables listed codebook
+      ## https://s4.ad.brown.edu/projects/diversity/Researcher/LTBDDload/Dfiles/codebooks.pdf
+      
       `Total Pop` = "B01001_001",
       `Median Household Income, Total`  = "B19013_001",
       `Median Household Income, White` = "B19013A_001",
@@ -26,11 +29,7 @@ get_acs_vars <- function(year){
       
       dpov = "B17001_001",
       npov = "B17001_002",
-      n65povm = "B17001_015",
-      n75povm = "B17001_016",
-      n65povf = "B17001_029",
-      n75povf = "B17001_030",
-      
+
       nbpov = "B17020B_002",
       dbpov = "B17020B_001",
       
@@ -65,15 +64,16 @@ get_acs_vars <- function(year){
 acs_2012 <- get_acs_vars(2012) # But these do...?
 acs_2019 <- get_acs_vars(2019)
 
+saveRDS(acs_2012, "outputs/acs_2012_raw.RDS")
+saveRDS(acs_2019, "outputs/acs_2019_raw.RDS")
 
 # Calculate Measures -----
 
 process_vars <- function(df) {
   
-  # Removing the E-suffix from the Estimates
+  # Removing the E-suffix from the Estimates to rename columns
   rename_cols <- c(names(df)[1:2],
                    sub("E", "", names(df)[-c(1:2)]))
-  
   colnames(df) <- rename_cols
   
   
@@ -89,32 +89,34 @@ process_vars <- function(df) {
     select(-ends_with("M", ignore.case = F)) %>%
     
     
-    # Measure Calculations
+    # Measure Calculations based as much as possible on notes provided in codebook
     mutate(
       `Per Capita Income` = `Median Household Income, Total` / `Total Pop`,
-      `Percent in Poverty, Total` = npov / dpov,
-      `Percent in Poverty, 65+` = (n65povm + n65povf + n75povm + n75povf) /
-        dpov,
-      `Percent in Poverty, Black` = nbpov / dbpov,
-      `Percent in Poverty, White` = nwpov / dwpov,
-      `Percent in Poverty, Hispanic` = nhpov / dhpov,
+      `Percent in Poverty, Total` = npov / dpov * 100,
+      `Percent in Poverty, Black` = nbpov / dbpov * 100,
+      `Percent in Poverty, White` = nwpov / dwpov * 100,
+      `Percent in Poverty, Hispanic` = nhpov / dhpov * 100,
       
-      `Percent Onwer-Occupied Units` = own / ohu,
-      `Percent Vacant Units` = vac / hu,
+      `Percent Owner-Occupied Units` = own / ohu * 100,
+      `Percent Vacant Units` = vac / hu * 100,
       
       `Percent with High School Degree or Less` = hs / ag25up * 100,
       `Percent with 4-year College Degree or More` = (bachelors + masters + professional + doctorate) / ag25up * 100,
       `Percent Unemployed` = laborforce_unemploy / laborforce * 100,
-      `Percent Labor Force Participation` = laborforce / total_employ * 100
+      `Percent Labor Force Participation` = laborforce / total_employ * 100,
+      
+      `Median Household Income, Asian/PI` = `Median Household Income, Asian` + `Median Household Income, PI`
     ) %>%
     
     # Removing original variables
-    select(-c(dpov:laborforce_unemploy)) 
+    select(-c(dpov:laborforce_unemploy, 
+              `Median Household Income, Asian`, 
+              `Median Household Income, PI`)) 
 
 
   
 }
-
+# Add column for year
 acs_2012_processed <- process_vars(acs_2012) %>%
   mutate(YEAR = 2010)
 acs_2019_processed <- process_vars(acs_2019) %>%

@@ -40,7 +40,6 @@ cname_map <- tibble(
   
   "INCPC" = "Per Capita Income",
   "PPOV" = "Percent in Poverty, Total",
-  "P65POV" = "Percent in Poverty, 65+",
   "PBPOV" = "Percent in Poverty, Black",
   "PWPOV" = "Percent in Poverty, White",
   "PNAPOV" = "Percent in Poverty, Native American",
@@ -49,7 +48,7 @@ cname_map <- tibble(
   
   "POWN" = "Percent Owner-Occupied Units",
   "PVAC" = "Percent Vacant Units",
-  "PMULTI" = "Percent Multi-Family Units",
+
   
   "MRENT" = "Median Rent",
   "MHMVAL" = "Median Home Value",
@@ -67,13 +66,21 @@ ltdb_combined <- ltdb_combined %>%
 
 # Get values to fill in missing State and County names
 clean_ids <- function(data){
+
   data %>%
+  # Convert State, County, and Tract individual IDs to characters and remove NAs
+  mutate_at(c("STATEA", "COUNTYA", "TRACTA"), as.character) %>%
+  filter_at(c("STATEA", "COUNTYA", "TRACTA"), all_vars(!is.na(.))) %>%
+  
+  # Remove trailing 0s in the code  
   mutate(STATEA = substr(STATEA, 1,2),
           COUNTYA = substr(COUNTYA, 1,3),
           TRACTA = str_pad(TRACTA, width = 6, side = "left", pad = "0"),
+         # Create 11 digit GEOID
           GEOID = paste0(STATEA, COUNTYA, TRACTA))
 }
 
+# Create State and County names to fill in missing values
 state_names <- ltdb_combined %>%
   clean_ids() %>%
   select(3:4) %>%
@@ -92,8 +99,9 @@ ltdb_combined <- ltdb_combined %>%
   left_join(state_names, by = "STATEA", suffix = c("_old", "")) %>%
   left_join(county_names, by = c("STATEA", "COUNTYA"), suffix = c("_old", "")) %>%
   select(YEAR, STATE, COUNTY, GEOID, cname_map$readable)
- 
+ltdb_combined$YEAR = as.numeric(ltdb_combined$YEAR)
+ltdb_combined$COUNTY = tools::toTitleCase(as.character(ltdb_combined$COUNTY))
 
 # Write Out data  
-write.csv(ltdb_combined, "outputs/ltdb_combined.csv" )
+write.csv(ltdb_combined, "outputs/ltdb_combined.csv")
 write_rds(ltdb_combined, "outputs/ltdb_combined.RDS")
