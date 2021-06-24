@@ -1,0 +1,106 @@
+---
+title: "Data Quality"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+theme_set(theme_minimal())
+options(scipen = 999)
+```
+
+# Data Quality Checks
+
+Objectives:
+
+-   Understand how many census tracts are present for all years of data
+
+-   Understand how much data is missing by
+
+    -   Census Tracts
+    -   Year
+    -   State
+
+```{r}
+df <- readRDS("outputs/combined.RDS")
+
+colnames(df)
+```
+
+```{r}
+df %>%
+  group_by(GEOID) %>%
+  summarize(`Number of NAs in PLACES` = sum(is.na(ARTHRITIS)),
+            `Number of Tracts` = n())
+  filter(`Number of Tracts` ==16)
+  ungroup() %>%
+  group_by(`Number of NAs in PLACES`, `Number of Tracts`) %>%
+  count()
+```
+
+## Redlining Data - Duplicated Tracts in Multiple Cities
+
+```{r}
+# Reading in Redlining Data
+redlining <- read.csv("raw data/All_Population_Weighted_HOLC_Grades_pt2_Threshold.csv")
+
+# Identifying tracts with GEOIDs recurring more than once
+duplicates <- redlining %>%
+  group_by(GEOID) %>%
+  count() %>%
+  filter(n > 1)
+
+# Subsetting redlining data based on identified IDs
+duplicates_all <- redlining %>%
+  filter(GEOID %in% duplicates$GEOID)
+```
+
+### Visualizations
+
+```{r}
+duplicates_all %>%
+  group_by(city, state) %>%
+  summarize(NAs = sum(is.na(holc_grade_pop)),
+            `Total CTs` = n()) %>%
+  pivot_longer(names_to = "Type", values_to = "Count", cols = c(NAs, `Total CTs`)) %>%
+  
+  ggplot(aes(x = reorder(city,Count), y = Count)) +
+  geom_col(aes(fill = state, color = Type), 
+           alpha = 0.4,
+           position = "identity") +
+  scale_color_manual(values = c("black", rgb(0,0,0,0)))+
+  coord_flip() +
+  labs(x = "# of CTs", y = "City", title = "Duplicated CTs")
+
+
+duplicates_all %>%
+  group_by(city, state) %>%
+  summarize(NAs = sum(is.na(holc_grade_pop)),
+            `Total CTs` = n()) %>%
+  ungroup() %>%
+  group_by(state) %>%
+  summarize(NAs = sum(NAs),
+            Total = sum(`Total CTs`))
+
+
+duplicates_all %>%
+  group_by(GEOID) %>%
+  summarize(NAs = sum(is.na(holc_grade_pop)),
+            `Total CTs` = n()) %>%
+  ungroup() %>%
+  group_by(NAs, `Total CTs`) %>%
+  count() %>%
+  ggplot(aes(x = `Total CTs`, y = n, group = NAs)) +
+  geom_col(aes(fill = as.factor(NAs)), position = "dodge") +
+  geom_text(aes(label = n), 
+            position = position_dodge(width = 1), size = 3
+            ) +
+  labs(fill = "Number of NAs",
+       x = "Number of Duplicated Tracts",
+       y = "") +
+  theme(axis.text.y = element_blank(),
+        legend.position = "top")
+
+```
