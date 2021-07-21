@@ -93,11 +93,20 @@ process_vars <- function(df) {
     mutate(
       `Per Capita Income` = `Median Household Income, Total` / `Total Pop`,
       `Percent in Poverty, Total` = npov / dpov * 100,
+<<<<<<< HEAD
+=======
+      `Percent in Poverty, 65+` = (n65povm + n65povf + n75povm + n75povf * 100) /
+        dpov,
+>>>>>>> efbbcadddff9e399d21f6c162a52b9d037c58298
       `Percent in Poverty, Black` = nbpov / dbpov * 100,
       `Percent in Poverty, White` = nwpov / dwpov * 100,
       `Percent in Poverty, Hispanic` = nhpov / dhpov * 100,
       
+<<<<<<< HEAD
       `Percent Owner-Occupied Units` = own / ohu * 100,
+=======
+      `Percent Onwer-Occupied Units` = own / ohu * 100,
+>>>>>>> efbbcadddff9e399d21f6c162a52b9d037c58298
       `Percent Vacant Units` = vac / hu * 100,
       
       `Percent with High School Degree or Less` = hs / ag25up * 100,
