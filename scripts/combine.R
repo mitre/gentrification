@@ -39,15 +39,30 @@ redlining <-
 redlining$GEOID <- str_pad(redlining$GEOID, width = 11, side = "left", pad = "0")
 redlining$GEOID <- as.character(redlining$GEOID)
 redlining$state <- NULL
+redlining$city <- NULL
+redlining <- redlining %>% 
+  group_by(GEOID) %>%
+  summarize(holc_grade_pop = mean(holc_grade_pop, na.rm = T)) 
+
 
 # Combine Data ------
-
 
 final <- bind_rows(ltdb, acs_2012, acs_2019)
 final$GEOID <- as.character(final$GEOID)
 
 final <- final %>% left_join(redlining, by = "GEOID") %>%
   left_join(places, by = c("GEOID" = "TractFIPS"))
+
+
+# Cleaning names
+# tibble()
+# "La Porte" = "Laporte"
+# "La Porte" = "La Porte",
+# "De Soto" = "Desoto",
+# "De Soto" = "DeSoto",
+# "Du Page" = "Dupage",
+# "Du Page" = "DuPage"
+
 
 saveRDS(final, "outputs/combined.RDS")
 

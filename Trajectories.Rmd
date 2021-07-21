@@ -34,8 +34,7 @@ acs_2019_processed <- readRDS("outputs/acs_2019.RDS")
 
 
 ltdb <- bind_rows(ltdb, acs_2012_processed, acs_2019_processed)
-ltdb$YEAR = as.numeric(ltdb$YEAR)
-ltdb$COUNTY = tools::toTitleCase(ltdb$COUNTY)
+
 
 ```
 
