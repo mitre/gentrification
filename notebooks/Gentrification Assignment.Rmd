@@ -20,7 +20,7 @@ library(censusapi)
 ## Redlining Data (from Hannah DLS)
 
 ```{r}
-redlining <- read.csv("data/All_Population_Weighted_HOLC_Grades_pt2_Threshold.csv")
+redlining <- read.csv("raw data/All_Population_Weighted_HOLC_Grades_pt2_Threshold.csv")
 
 baltimore <- redlining %>% filter(city == "Baltimore")
 
@@ -37,7 +37,7 @@ Downloadable Datasets
     -   access confidential microdata in the 2000 census and adds random noise to so that estimates can be disclosed
 
 ```{r}
-dp <- read_xlsx("data/LTDB/LTDB_DP.xlsx")
+dp <- read_xlsx("raw data/LTDB/LTDB_DP.xlsx")
 
 colnames(dp)
 ```
@@ -51,8 +51,8 @@ colnames(dp)
         The standard data set for each decade is a comma-delimited .txt file with the variable names in the first row. We also provide a codebook that identifies the original tables in each census year from which data have been taken.
 
 ```{r}
-standard_70 <- read.csv("data/LTDB/LTDB_Std_All_fullcount/LTDB_Std_1970_fullcount.csv")
-standard_80 <- read.csv("data/LTDB/LTDB_Std_All_fullcount/LTDB_Std_1980_fullcount.csv")
+standard_70 <- read.csv("raw data/LTDB/LTDB_Std_All_fullcount/LTDB_Std_1970_fullcount.csv")
+standard_80 <- read.csv("raw data/LTDB/LTDB_Std_All_fullcount/LTDB_Std_1980_fullcount.csv")
 
 head(standard_70)
 colnames(standard_70)
@@ -84,8 +84,8 @@ Crosswalk files: The 2000-2010 crosswalk identifies what kind of boundary change
 -   Download Codebook
 
 ```{r}
-tract_70 <- read.dbf("data/LTDB/Map_Data/tract1970Data.dbf")
-tract_80 <- read.dbf("data/LTDB/Map_Data/tract1980Data.dbf")
+tract_70 <- read.dbf("raw data/LTDB/Map_Data/tract1970Data.dbf")
+tract_80 <- read.dbf("raw data/LTDB/Map_Data/tract1980Data.dbf")
 ```
 
 #### Notes:

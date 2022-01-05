@@ -45,32 +45,38 @@ data %>%
 
 data %>%
   filter(gentrified == T) %>%
-  mutate(holc_factors = case_when(holc_grade_pop == 4 ~ "redlined",
-                                  holc_grade_pop < 2 ~ "not redlined")) %>%
+  mutate(holc_factors = case_when(holc_grade_pop == 4 ~ "Redlined",
+                                  holc_grade_pop < 2 ~ "Not Redlined")) %>%
   filter(!is.na(holc_grade_pop)) %>%
   ggplot() +
-  geom_histogram(aes(x = COPD_CrudePrev, fill = as.factor(holc_factors)), alpha = 0.5, na.rm = T)
+  geom_density(aes(x = MHLTH_CrudePrev, fill = as.factor(holc_factors)), alpha = 0.5, na.rm = T) +
+  labs(title = "Poor Mental Health in Gentrified Tracts",
+      fill = "HOLC Grade",
+       x = "Poor Mental Health Crude Prevalence")
 
 
 data %>%
   filter(gentrified == F) %>%
-  mutate(holc_factors = case_when(holc_grade_pop == 4 ~ "redlined",
-                                  holc_grade_pop < 2 ~ "not redlined")) %>%
+  mutate(holc_factors = case_when(holc_grade_pop == 4 ~ "Redlined",
+                                  holc_grade_pop < 2 ~ "Not Redlined")) %>%
   filter(!is.na(holc_grade_pop)) %>%
   ggplot() +
-  geom_histogram(aes(x = COPD_CrudePrev, fill = as.factor(holc_factors)), alpha = 0.5, na.rm = T)
+  geom_density(aes(x = MHLTH_CrudePrev, fill = as.factor(holc_factors)), alpha = 0.5, na.rm = T) +
+  labs(title = "Poor Mental Health in Non Gentrified Tracts",
+       fill = "HOLC Grade",
+       x = "Poor Mental Health Crude Prevalence")
 ```
 
 ```{r}
 red_gent <- data %>% filter(holc_grade_pop == 4,
                 gentrified == T) %>%
-  select(COPD_CrudePrev, CASTHMA_CrudePrev)
+  select(COPD_CrudePrev, CASTHMA_CrudePrev, MHLTH_CrudePrev)
 
 red_nogent <- data %>% filter(holc_grade_pop == 4,
                 gentrified == F) %>%
-  select(COPD_CrudePrev, CASTHMA_CrudePrev)
+  select(COPD_CrudePrev, CASTHMA_CrudePrev, MHLTH_CrudePrev)
 
-t.test(red_gent$COPD_CrudePrev, red_nogent$COPD_CrudePrev)
+t.test(red_gent$MHLTH_CrudePrev, red_nogent$MHLTH_CrudePrev)
 t.test(red_gent$CASTHMA_CrudePrev, red_nogent$CASTHMA_CrudePrev)
 
 

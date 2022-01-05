@@ -34,12 +34,10 @@ acs_2019_processed <- readRDS("outputs/acs_2019.RDS")
 
 
 ltdb <- bind_rows(ltdb, acs_2012_processed, acs_2019_processed)
-<<<<<<< HEAD
 
-=======
 ltdb$YEAR = as.numeric(ltdb$YEAR)
-ltdb$COUNTY = tools::toTitleCase(ltdb$COUNTY)
->>>>>>> efbbcadddff9e399d21f6c162a52b9d037c58298
+
+
 
 ```
 
@@ -58,14 +56,21 @@ Following looks at Counties in Alabama, and changes in Median Household income f
 household_income <- left_join(ltdb, redlining, by = "GEOID") %>%
   mutate(redlined = case_when(holc_grade_pop == 4 ~ "Redlined",
                               holc_grade_pop > 0 & holc_grade_pop < 4 ~ "Not Redlined",
-                              TRUE ~ "Ungraded")) %>%
-  group_by(YEAR, STATE, COUNTY, redlined) %>%
+                              TRUE ~ "Ungraded"),
+         redlined_4 = case_when(holc_grade_pop >= 3.5 ~ "Best",
+                                holc_grade_pop >= 2.5 & holc_grade_pop < 3.5 ~ "Still Desirable",
+                                holc_grade_pop >= 1.5 & holc_grade_pop < 2.5 ~ "Definitely Declining",
+                                holc_grade_pop < 1.5 & holc_grade_pop > 0 ~ "Hazardous", 
+                                TRUE ~ "Ungraded")) %>%
+  group_by(YEAR, STATE, COUNTY, redlined_4) %>%
   filter(redlined != "Ungraded") %>%
   summarize(Total = mean(`Median Household Income, Total`, na.rm = T),
             White = mean(`Median Household Income, White`, na.rm = T),
             Black = mean(`Median Household Income, Black`, na.rm = T)) %>%
   gather(key = "Median Household Income", value = "Dollars", c(Total, White, Black)) %>%
   ungroup()
+
+household_income$redlined_4 <- factor(household_income$redlined_4, levels = c("Hazardous", "Definitely Declining", "Still Desirable", "Best", "Ungraded"))
 
 household_income_plot <- function(State){
   household_income %>%
@@ -90,9 +95,9 @@ household_income_plot("Wisconsin")
 household_income %>%
   ggplot(aes(x = YEAR, y = Dollars, color = `Median Household Income`)) +
   geom_point(alpha = 0.4) +
-  geom_smooth(method = "lm") +
+  geom_smooth(method = "loess") +
   scale_y_log10()+
-  facet_grid(~redlined) +
+  facet_grid(~redlined_4) +
   labs(y = "Dollars (Log Scale)")
 ```
 
@@ -129,8 +134,9 @@ education_plot("Colorado")
 education %>%
   ggplot(aes(x = YEAR, y = Percent, color = Education))  +
   geom_point( alpha = 0.4) +
-  geom_smooth(method = "lm") +
-  facet_grid(~redlined)
+  geom_smooth(method = "loess") +
+  facet_grid(~redlined) +
+  labs(title = "Trends in Education from 1970 to 2020")
 
 ```
 
@@ -176,7 +182,8 @@ poverty %>%
   ggplot(aes(x = YEAR, y = `Percent in Poverty`, color = `Race / Ethnicity`)) + 
   geom_jitter(alpha = 0.3) +
   geom_smooth(method = "lm") +
-  facet_grid(~ redlined)
+  facet_grid(~ redlined) +
+  labs(title = "Trends in Poverty from 1970 to 2020")
 ```
 
 ```{r}
