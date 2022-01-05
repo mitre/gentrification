@@ -8,7 +8,11 @@
 *.csv
 *.xlsx
 *.RDS
+*.png
+
+.DS_Store
+.RDataTmp
 
 raw data/
 
-.DS_Store
+
