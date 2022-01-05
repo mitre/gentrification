@@ -1,0 +1,215 @@
+---
+title: "Gentrification Outline"
+output: 
+  html_notebook:
+    toc: true
+    toc_float: true
+---
+
+# Table of Contents
+
+Hypothesis: Gentrification Mediates the Effects of Redlining on modern day health outcomes
+
+Goal: Researchers should include Gentrification in models that look at redlining on present day health outcomes
+
+Impact: Importance in correctly identifying gentrification at a national level to include guardrails for federal programs that adopt place-based interventions.
+
+## Unplaced Concepts
+
+-   Difficulty operationalizing gentrification - Noted early in 1986 Galster & Peacok in constructing Logistic least-squares using census variables to define gentrification.
+
+## Abstract
+
+## Background & Lit Review
+
+Examples of historical place based policies
+
+Present examples:
+
+Investment in gentrification: The eligibility of gentrifying neighborhoods for federal place-based economic investment in U.S. cities (Oct 2020)
+
+-   Relationship between federal place-based programs in U.S. cities
+
+    -   New Market Tax Credits
+
+    -   Opportunity Zones
+
+    -   Low Income Housing Credits
+
+    -   Community Development Financial Institution funds
+
+-   Results: gentrifying neighborhoods are eligible for each of the four programs, some eligible for multiple. Opportunity zones has 2x likely that gentrifying tracts are eligible
+
+### Redlining & Health
+
+-   known negative effects on health
+
+    -   asthma [Associations between historical residential redlining and current age-adjusted rates of emergency department visits due to asthma across eight cities in California: an ecological study - ScienceDirect](https://www.sciencedirect.com/science/article/pii/S2542519619302414)
+
+    -   birth outcomes [Structural Racism, Historical Redlining, and Risk of Preterm Birth in New York City, 2013--2017 \| AJPH \| Vol. 110 Issue 7 (aphapublications.org)](https://ajph.aphapublications.org/doi/full/10.2105/AJPH.2020.305656)
+
+    -   cancer [Cancer Stage at Diagnosis, Historical Redlining, and Current Neighborhood Characteristics: Breast, Cervical, Lung, and Colorectal Cancers, Massachusetts, 2001--2015 \| American Journal of Epidemiology \| Oxford Academic (oup.com)](https://academic.oup.com/aje/article/189/10/1065/5812653)
+
+    -   heat [Climate \| Free Full-Text \| The Effects of Historical Housing Policies on Resident Exposure to Intra-Urban Heat: A Study of 108 US Urban Areas \| HTML (mdpi.com)](https://www.mdpi.com/2225-1154/8/1/12/htm)
+
+    -   food environment [Linking historical discriminatory housing patterns to the contemporary food environment in Baltimore - ScienceDirect](https://www.sciencedirect.com/science/article/pii/S1877584520300654)
+
+    -   poor physical & mental health [The legacy of structural racism: Associations between historic redlining, current mortgage lending, and health - PubMed (nih.gov)](https://pubmed.ncbi.nlm.nih.gov/33997243/)
+
+### Redlining & Gentrification
+
+-   [Impacts of Gentrification on Health in the US: a Systematic Review of the Literature (nih.gov)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7704880/) (makes connection between redlining and gentrification)
+
+-   rent gap hypothesis [Gentrification and the Rent Gap on JSTOR](https://www.jstor.org/stable/2563279)
+
+-   [Smith Theory of /Gentrification (cuny.edu)](https://eportfolios.macaulay.cuny.edu/chin15/files/2015/02/Smith-Theory-of-_Gentrification.pdf) A back to the City Movement by Capital, not People
+
+### Gentrification & Health
+
+-   results show mixed results, suggests positive association between gentrification for white folks, negative for black americans
+-   Gibbons, J., & Barton, M. S. (2016). The association of minority self- rated health with black versus white gentrification. Journal of Urban Health: Bulletin of the New York Academy of Medicine, **93**, 909--922. <doi:10.1007/s11524-016-0087-0>
+
+[Aging in Place in Gentrifying Neighborhoods: Implications for Physical and Mental Health \| The Gerontologist \| Oxford Academic (oup.com)](https://academic.oup.com/gerontologist/article/58/1/26/4049431)
+
+-   National Study of Gentrification for 65+
+
+------------------------------------------------------------------------
+
+## Methods
+
+### Data & Sample
+
+#### Longitudinal Tract Database (LTDB) - 1970, 1980, 1990, 2000
+
+The Longitudinal Tract Data Base (LTDB) provides public-use tools to create estimates within 2010 tract boundaries for any tract-level data (from the census or other sources) that are available for prior years as early as 1970 and now also for 2015-2019 and 2020.
+
+-   Data \> LTDB
+
+    -   `tract1970Data.dbf`
+
+    -   `tract1980Data.dbf`
+
+    -   `tract1990Data.dbf`
+
+    -   `tract2000Data.dbf`
+
+    -   `tract2010Data.dbf`
+
+```{=html}
+<!-- -->
+```
+-   Scripts \> `ltdb_cleaning.R`
+
+#### American Community Survey (ACS) - 2000, 2019
+
+-   Scripts \> `acs_data_pull.R`
+
+#### PLACES
+
+-   Data \> `500_Cities__Local_Data_for_Better_Health__2019_release.csv`
+
+### Measures
+
++---------------------------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
+| Method                                                                                                        | Eligibility                                                                                                                                                          | Determination                                                                                                                                   |
++===============================================================================================================+======================================================================================================================================================================+=================================================================================================================================================+
+| Hammel & Wyly (1996)                                                                                          |                                                                                                                                                                      |                                                                                                                                                 |
++---------------------------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
+| Freedman (2005)                                                                                               | -   Be located in the central city at the beginning of the intercensal period                                                                                        | -   Have a percentage increase in educational attainment greater than the median increase in educational attainment for that metropolitan area. |
+|                                                                                                               |                                                                                                                                                                      |                                                                                                                                                 |
+|                                                                                                               | -   Have a median income less than the median (40th percentile) for that metropolitan area at the beginning of the intercensal period                                | -   Have an increase in real housing prices during the intercensal period                                                                       |
+|                                                                                                               |                                                                                                                                                                      |                                                                                                                                                 |
+|                                                                                                               | -   Have a proportion of housing built within the past 20 years lower than the proportion found at the median (40th percentile) for the respective metropolitan area |                                                                                                                                                 |
++---------------------------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
+| [Governing](https://www.governing.com/archive/gentrification-report-methodology.html) (2015) based on Freeman | -   Pop \> 500                                                                                                                                                       | -   \% of Bachelors in 25+ is \> 66th percentile                                                                                                |
+|                                                                                                               |                                                                                                                                                                      |                                                                                                                                                 |
+|                                                                                                               | -   Median Household Income \< 40th percentile                                                                                                                       | -   Increase in Median home value (inflation adjusted)                                                                                          |
+|                                                                                                               |                                                                                                                                                                      |                                                                                                                                                 |
+|                                                                                                               | -   Median Home value \< 40th percentile                                                                                                                             | -   \% increase in inflation adjusted home value \> 66th percentile                                                                             |
++---------------------------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
+
+-   Scripts \> methods.R
+
+    -   Governing (DONE)
+
+    -   Freeman
+
+Life expectancy - [NVSS - United States Small-Area Life Expectancy Estimates Project (cdc.gov)](https://www.cdc.gov/nchs/nvss/usaleep/usaleep.html)
+
+------------------------------------------------------------------------
+
+## Results
+
+### Table 1: Descriptive Statistics
+
+Tasks: Decide which methods to use
+
+-   Lance Freeman
+
+-   Lisa Bates?
+
+-   
+
++------------------------------------------+--------------+-----------------+--------------+-----------------+
+| Characteristics of Tracts                | Redlined     | Redlined        | Not Redlined | Not Redlined    |
++==========================================+==============+=================+==============+=================+
+| Method 1: Lance Freeman                  | Gentrified \ | Not Gentrified\ | Gentrified \ | Not Gentrified\ |
+|                                          | (n = )       | (n = )          | (n = )       | (n = )          |
++------------------------------------------+--------------+-----------------+--------------+-----------------+
+| Neighborhood Characteristics             |              |                 |              |                 |
+|                                          |              |                 |              |                 |
+| -   Median Household Income              |              |                 |              |                 |
+|                                          |              |                 |              |                 |
+| -   Median Home Value                    |              |                 |              |                 |
+|                                          |              |                 |              |                 |
+| -   \% Education                         |              |                 |              |                 |
+|                                          |              |                 |              |                 |
+| -   \% Race Ethnicity (White, Non-white) |              |                 |              |                 |
+|                                          |              |                 |              |                 |
+| -   \% Rent/Own                          |              |                 |              |                 |
+|                                          |              |                 |              |                 |
+| -   Median Home age                      |              |                 |              |                 |
+|                                          |              |                 |              |                 |
+| Health Outcomes                          |              |                 |              |                 |
+|                                          |              |                 |              |                 |
+| -   Life Expectancy                      |              |                 |              |                 |
+|                                          |              |                 |              |                 |
+| -   Self-reported Physical Health        |              |                 |              |                 |
+|                                          |              |                 |              |                 |
+| -   Self-reported Mental Health          |              |                 |              |                 |
+|                                          |              |                 |              |                 |
+| -   Prevalent Chronic Conditions         |              |                 |              |                 |
++------------------------------------------+--------------+-----------------+--------------+-----------------+
+| Method 2: Lisa Bates?                    |              |                 |              |                 |
++------------------------------------------+--------------+-----------------+--------------+-----------------+
+
+### Model Results
+
+Model 0: Baseline models (replicating prior research)
+
+-   Univariate: Health Outcomes \~ Redlining
+
+-   Multivariate: Health Outcomes \~ Redlining + Covariates
+
+Model 1: Moderation / Interaction model
+
+-   Health Outcomes \~ Redlining  \* Gentrification
+
+Model 2: Mediation model
+
+-   Health Outcomes \~ Redlining\
+    Health Outcomes \~ Gentrification\
+    Gentrification \~ Redlining\
+    Health Outcomes \~ Redlining + Gentrification
+
+### Sensitivity Analysis
+
+Replicate models with alternative definitions of Gentrification
+
+------------------------------------------------------------------------
+
+## Discussion
+
+### Implications
+
+### Next Steps
