@@ -10,8 +10,15 @@ ltdb <- readRDS("outputs/ltdb_combined.RDS")
 acs_2012 <- readRDS("outputs/acs_2012.RDS")
 acs_2019 <- readRDS("outputs/acs_2019.RDS")
 
+
+# Load USA Life Expectancy
+leep <- read.csv("raw data/US_A.CSV")
+leep <- leep[,c(1,5,6)]
+colnames(leep) <- c("TractID", "Life Expectancy", "SE Life Expectancy")
+leep$TractID <- as.character(leep$TractID)
+
 ## Load & Process PLACES -----
-places <- read.csv("raw data/PLACES__Census_Tract_Data__GIS_Friendly_Format___2020_release.csv")
+places <- read.csv("raw data/PLACES 500 Cities/PLACES__Census_Tract_Data__GIS_Friendly_Format___2020_release.csv")
 
 # Make sure that codes are correct form
 places <- places %>%
@@ -51,8 +58,10 @@ final <- bind_rows(ltdb, acs_2012, acs_2019)
 final$GEOID <- as.character(final$GEOID)
 
 final <- final %>% left_join(redlining, by = "GEOID") %>%
-  left_join(places, by = c("GEOID" = "TractFIPS"))
+  left_join(places, by = c("GEOID" = "TractFIPS")) %>%
+  left_join(leep, by = c("GEOID" = "TractID"))
 
+# colSums(is.na(final))
 
 # Cleaning names
 # tibble()
