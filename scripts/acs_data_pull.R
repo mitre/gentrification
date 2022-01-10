@@ -27,17 +27,17 @@ get_acs_vars <- function(year){
       `Median Rent` = "B25058_001",
       `Median Home Value` = "B25077_001",
       
-      dpov = "B17001_001",
-      npov = "B17001_002",
+      dpov = "B17001_001", # Denominator: Total 
+      npov = "B17001_002", # Numeration: number in poverty
 
-      nbpov = "B17020B_002",
-      dbpov = "B17020B_001",
+      nbpov = "B17020B_002", # Numerator: Total - Black
+      dbpov = "B17020B_001", # Denominator: number in poverty - Black
       
-      nwpov = "B17020H_002",
-      dwpov = "B17020H_001",
+      nwpov = "B17020H_002", # Numerator: Total - White, non Hispanic
+      dwpov = "B17020H_001", # Denominator: number in poverty - White, non Hispanic
       
-      nhpov = "B17020I_002",
-      dhpov = "B17020I_001",
+      nhpov = "B17020I_002", # Numerator: Total - Hispanic
+      dhpov = "B17020I_001", # Denominator: number in poverty - Hispanic
       
       hu = "B25002_001", # Estimate!! Total: OCCUPANCY STATUS
       ohu = "B25003_001", # Estimate!! Total: TENURE
@@ -52,10 +52,10 @@ get_acs_vars <- function(year){
       doctorate = "B15003_025", 
       ag25up = "B15003_001", # denominator for education, population 25+
       
-      total_employ = "C18120_001",
-      laborforce = "C18120_002",
-      laborforce_employ = "C18120_003",
-      laborforce_unemploy = "C18120_006"
+      total_employ = "C18120_001", # Denominator: Total 
+      laborforce = "C18120_002", # Number in laborforce
+      laborforce_employ = "C18120_003", # Number in laborforce employed
+      laborforce_unemploy = "C18120_006" # Number in laborforce unemployed
     )
   )
 }
@@ -93,20 +93,12 @@ process_vars <- function(df) {
     mutate(
       `Per Capita Income` = `Median Household Income, Total` / `Total Pop`,
       `Percent in Poverty, Total` = npov / dpov * 100,
-<<<<<<< HEAD
-=======
-      `Percent in Poverty, 65+` = (n65povm + n65povf + n75povm + n75povf * 100) /
-        dpov,
->>>>>>> efbbcadddff9e399d21f6c162a52b9d037c58298
       `Percent in Poverty, Black` = nbpov / dbpov * 100,
       `Percent in Poverty, White` = nwpov / dwpov * 100,
       `Percent in Poverty, Hispanic` = nhpov / dhpov * 100,
       
-<<<<<<< HEAD
       `Percent Owner-Occupied Units` = own / ohu * 100,
-=======
-      `Percent Onwer-Occupied Units` = own / ohu * 100,
->>>>>>> efbbcadddff9e399d21f6c162a52b9d037c58298
+
       `Percent Vacant Units` = vac / hu * 100,
       
       `Percent with High School Degree or Less` = hs / ag25up * 100,
