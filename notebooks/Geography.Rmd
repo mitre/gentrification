@@ -1,0 +1,100 @@
+---
+title: "Geography Explore"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# install.packages("tmap")
+library(tigris)
+library(sp)
+library(sf)
+library(tidyverse)
+library(tmap)
+```
+
+## Objective
+
+-   Determine what boundaries to use when identifying reference areas for Gentrification
+
+[https://www.census.gov/geographies/mapping-files/time-series/geo/ORrtographic-boundary.html](https://www.census.gov/geographies/mapping-files/time-series/geo/cartographic-boundary.html){.uri}
+
+-   Examined boundaries:
+
+    -   Counties - currently used reference area
+    -   Consolidated Cities (ConCity)
+    -   Core Based Statistical Areas (CBSA)
+    -   Combined Statistical Areas (CSA)
+    -   Metropolitan Divisions (MetDiv)
+    -   Places
+
+```{r explore_boundary_types}
+places <- places(cb = TRUE, state = "OR")
+
+tracts <- tracts(state = "OR", cb = TRUE)
+cbsa <- core_based_statistical_areas(cb = TRUE)
+  or_cbsa <- filter(cbsa, grepl("OR", NAME))
+
+csa <- combined_statistical_areas(cb = TRUE) 
+  or_csa <- filter(csa, grepl("OR", NAME))
+county <- counties(cb = TRUE, state = "OR")
+concity <- metro_divisions()
+  or_concity <- filter(concity, grepl("OR", NAME))
+
+or_county <- tm_shape(tracts) +
+  tm_polygons() +
+tm_shape(county) +
+  tm_borders(col = "red", alpha = 0.3)
+# tmap_save(or_county, "or_county.png")
+
+or_places <- tm_shape(tracts) +
+  tm_polygons() +
+tm_shape(places) +
+  tm_borders(col = "red", alpha = 0.3)
+# tmap_save(or_places, "or_places.png")
+
+
+or_cbsa <- tm_shape(tracts) +
+  tm_polygons() +
+tm_shape(or_cbsa) +
+  tm_borders(col = "red", alpha = 0.3)
+# tmap_save(or_cbsa, "or_cbsa.png")
+
+or_csa <- tm_shape(tracts) +
+  tm_polygons() +
+tm_shape(or_csa) +
+  tm_borders(col = "red", alpha = 0.3)
+# tmap_save(or_csa, "or_csa.png")
+
+tm_shape(tracts) +
+  tm_polygons() +
+tm_shape(or_concity) +
+  tm_borders(col = "red", alpha = 0.3)
+
+```
+
+## Redlining & Places Geo Boundaries
+
+```{r}
+state <- "OR"
+state_fips <- ""
+
+places <- readRDS("../outputs/geo_places.RDS")
+tracts <- readRDS("../outputs/geo_tracts.RDS")
+holc <- read.csv("../raw data/All_Population_Weighted_HOLC_Grades_pt2_Threshold.csv") %>%
+  mutate(GEOID = as.character(GEOID))
+
+tracts <- merge(tracts, holc, by = "GEOID")
+state_tracts <- tracts %>% 
+  filter(STATEFP == state_fips)
+state_place <- places %>%
+  filter(STATEFP == state_fips)
+
+tm_shape(state_tracts) +
+  tm_polygons(col = "holc_grade_pop") +
+  tm_shape(state_place) +
+  tm_borders(col = "red", alpha = 0.8)
+
+
+
+```
