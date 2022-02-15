@@ -61,11 +61,19 @@ get_acs_vars <- function(year){
 }
 
 # acs_2010 <- get_acs_vars(2010) # this one doesn't work?
-acs_2012 <- get_acs_vars(2012) # But these do...?
-acs_2019 <- get_acs_vars(2019)
 
-saveRDS(acs_2012, "outputs/acs_2012_raw.RDS")
-saveRDS(acs_2019, "outputs/acs_2019_raw.RDS")
+if (!file.exists("outputs/acs_2012_raw.RDS")) {
+  acs_2012 <- get_acs_vars(2012)
+  saveRDS(acs_2012, "outputs/acs_2012_raw.RDS")
+}
+acs_2012 <- readRDS("outputs/acs_2012_raw.RDS")
+
+if (!file.exists("outputs/acs_2019_raw.RDS")) {
+  acs_2019 <- get_acs_vars(2019)
+  saveRDS(acs_2019, "outputs/acs_2019_raw.RDS")
+}
+acs_2019 <- readRDS("outputs/acs_2019_raw.RDS")
+
 
 # Calculate Measures -----
 
