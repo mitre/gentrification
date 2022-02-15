@@ -4,7 +4,30 @@ output:
   html_notebook:
     toc: true
     toc_float: true
+  runtime: shiny
 ---
+
+```{r setup, include = FALSE}
+
+library(tidyverse)
+library(shiny)
+library(tigris)
+library(sf)
+library(tmap)
+
+
+places <- readRDS("outputs/geo_places.RDS")
+tracts <- readRDS("outputs/geo_tracts.RDS")
+holc <- read.csv("raw data/All_Population_Weighted_HOLC_Grades_pt2_Threshold.csv") %>%
+  mutate(GEOID = str_pad(GEOID,
+                         width = 11, 
+                         pad = "0", 
+                         side="left"))
+lsad <- readxl::read_xlsx("raw data/LSAD_crosswalk.xlsx", n_max = 15)
+
+holc_tracts <- merge(tracts, holc, by = "GEOID")
+places <- left_join(places, lsad, by = "LSAD")
+```
 
 # Table of Contents
 
@@ -14,15 +37,19 @@ Goal: Researchers should include Gentrification in models that look at redlining
 
 Impact: Importance in correctly identifying gentrification at a national level to include guardrails for federal programs that adopt place-based interventions.
 
-## Unplaced Concepts
-
--   Difficulty operationalizing gentrification - Noted early in 1986 Galster & Peacok in constructing Logistic least-squares using census variables to define gentrification.
-
 ## Abstract
 
 ## Background & Lit Review
 
-Examples of historical place based policies
+Present day health outcomes are strongly tied to geography. "Place based people strategies" which focus on areas of geographic interest to address disadvantage of residents in concentrated areas [Place-Based Policies (nber.org)](https://www.nber.org/system/files/working_papers/w20049/w20049.pdf), range from economic strategies like Opportuntity Zones to health care related strategies, like designated HPSAs or MUAs.
+
+The push for using geography as a strategy to address health disparities is accepted by rural advocates [Microsoft Word - Integration Paper final 04_01_11 (rupri.org)](https://rupri.org/wp-content/uploads/Place-based-Policies-and-Public-Health-Road-to-Healthy-Rural-People-and-Places-2011.pdf) and urban advocates [find citation] alikes. While systematic studies are inconclusive on their the effects of these interventions on health inequalities [Examining the effectiveness of place-based interventions to improve public health and reduce health inequalities: an umbrella review \| BMC Public Health \| Full Text (biomedcentral.com)](https://bmcpublichealth.biomedcentral.com/articles/10.1186/s12889-021-11852-z), there are concerted efforts to pursue and invest in place based people strategies in light of emerging social determinants of health literature.
+
+People based place strategies have not always sought to improve social equity and consequently health equity. Historic redlining involved implementing strategies in which low income minority communities were systematically denied opportunity and consequently increased disparities in generational wealth and health.
+
+The impact of redlining on present day health is well-documented, including asthma, birth outcomes, cancer, and poor physical and mental health. Redlining has also had direct effects on environmental exposures that like heat and food environment (poor housing qualitity?)
+
+Redlining locked into place
 
 Present examples:
 
@@ -39,6 +66,42 @@ Investment in gentrification: The eligibility of gentrifying neighborhoods for f
     -   Community Development Financial Institution funds
 
 -   Results: gentrifying neighborhoods are eligible for each of the four programs, some eligible for multiple. Opportunity zones has 2x likely that gentrifying tracts are eligible
+
+### Place-Based Policies
+
+[Place-Based Policies (nber.org)](https://www.nber.org/system/files/working_papers/w20049/w20049.pdf)
+
+-   "place-based strategies" - target areas irrespective of whether there are disadvantaged people or many people at all
+
+-   "place-based people strategies" - geographically targeted with the intent and structure of helping disadvantaged residents
+
+-   "people-based strategies" - LITC
+
+Direct vs indirect strategies
+
+-   direct (increase economic activity and strengthen labor markets where people live
+
+-   indirect (increase access of those people to location where labor markets are stronger)
+
+Examples: Federal Empowerment Zone Program (local governments submit proposals for zones made up of relatively poor, high-unemployment Census tracts)
+
+[Microsoft Word - Integration Paper final 04_01_11 (rupri.org)](https://rupri.org/wp-content/uploads/Place-based-Policies-and-Public-Health-Road-to-Healthy-Rural-People-and-Places-2011.pdf)
+
+Place-based policies and Public Health: The road to health rural people and places
+
+[Addressing Health Disparities Is a Place-Based Issue (nih.gov)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4816016/)
+
+[Examining the effectiveness of place-based interventions to improve public health and reduce health inequalities: an umbrella review \| BMC Public Health \| Full Text (biomedcentral.com)](https://bmcpublichealth.biomedcentral.com/articles/10.1186/s12889-021-11852-z)
+
+[Housing and health inequalities A synthesis of systematic reviews of interventions aimed at different pathways linking housing and health \| Elsevier Enhanced Reader](https://reader.elsevier.com/reader/sd/pii/S1353829210001486?token=043A087CEDEB9E015FE06509FB56C2A3D757100668455E287F62D636AFD1B5B08DD4507D73627134FC4853CFB15D7DC9&originRegion=us-east-1&originCreation=20220201153720)
+
+-   three pathways between housing and health
+
+    -   internal housing conditions (lead, carbon monoxide, cold/damp)
+
+    -   area characteristics (crime, social disorder, lack of access to social ammentites)
+
+    -   housing tenure (owning home may lead to feelings of security or prestige, indicator of greater long term command)
 
 ### Redlining & Health
 
@@ -95,9 +158,6 @@ The Longitudinal Tract Data Base (LTDB) provides public-use tools to create esti
 
     -   `tract2010Data.dbf`
 
-```{=html}
-<!-- -->
-```
 -   Scripts \> `ltdb_cleaning.R`
 
 #### American Community Survey (ACS) - 2000, 2019
@@ -127,6 +187,8 @@ The Longitudinal Tract Data Base (LTDB) provides public-use tools to create esti
 |                                                                                                               |                                                                                                                                                                      |                                                                                                                                                 |
 |                                                                                                               | -   Median Home value \< 40th percentile                                                                                                                             | -   \% increase in inflation adjusted home value \> 66th percentile                                                                             |
 +---------------------------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
+| Ken Steif                                                                                                     |                                                                                                                                                                      |                                                                                                                                                 |
++---------------------------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
 
 -   Scripts \> methods.R
 
@@ -150,38 +212,38 @@ Tasks: Decide which methods to use
 
 -   
 
-+------------------------------------------+--------------+-----------------+--------------+-----------------+
-| Characteristics of Tracts                | Redlined     | Redlined        | Not Redlined | Not Redlined    |
-+==========================================+==============+=================+==============+=================+
-| Method 1: Lance Freeman                  | Gentrified \ | Not Gentrified\ | Gentrified \ | Not Gentrified\ |
-|                                          | (n = )       | (n = )          | (n = )       | (n = )          |
-+------------------------------------------+--------------+-----------------+--------------+-----------------+
-| Neighborhood Characteristics             |              |                 |              |                 |
-|                                          |              |                 |              |                 |
-| -   Median Household Income              |              |                 |              |                 |
-|                                          |              |                 |              |                 |
-| -   Median Home Value                    |              |                 |              |                 |
-|                                          |              |                 |              |                 |
-| -   \% Education                         |              |                 |              |                 |
-|                                          |              |                 |              |                 |
-| -   \% Race Ethnicity (White, Non-white) |              |                 |              |                 |
-|                                          |              |                 |              |                 |
-| -   \% Rent/Own                          |              |                 |              |                 |
-|                                          |              |                 |              |                 |
-| -   Median Home age                      |              |                 |              |                 |
-|                                          |              |                 |              |                 |
-| Health Outcomes                          |              |                 |              |                 |
-|                                          |              |                 |              |                 |
-| -   Life Expectancy                      |              |                 |              |                 |
-|                                          |              |                 |              |                 |
-| -   Self-reported Physical Health        |              |                 |              |                 |
-|                                          |              |                 |              |                 |
-| -   Self-reported Mental Health          |              |                 |              |                 |
-|                                          |              |                 |              |                 |
-| -   Prevalent Chronic Conditions         |              |                 |              |                 |
-+------------------------------------------+--------------+-----------------+--------------+-----------------+
-| Method 2: Lisa Bates?                    |              |                 |              |                 |
-+------------------------------------------+--------------+-----------------+--------------+-----------------+
++------------------------------------------+-------------+-----------------+--------------+-----------------+
+| Characteristics of Tracts                | Redlined    | Redlined        | Not Redlined | Not Redlined    |
++==========================================+=============+=================+==============+=================+
+| Method 1: Lance Freeman                  | Gentrified\ | Not Gentrified\ | Gentrified\  | Not Gentrified\ |
+|                                          | (n = )      | (n = )          | (n = )       | (n = )          |
++------------------------------------------+-------------+-----------------+--------------+-----------------+
+| Neighborhood Characteristics             |             |                 |              |                 |
+|                                          |             |                 |              |                 |
+| -   Median Household Income              |             |                 |              |                 |
+|                                          |             |                 |              |                 |
+| -   Median Home Value                    |             |                 |              |                 |
+|                                          |             |                 |              |                 |
+| -   \% Education                         |             |                 |              |                 |
+|                                          |             |                 |              |                 |
+| -   \% Race Ethnicity (White, Non-white) |             |                 |              |                 |
+|                                          |             |                 |              |                 |
+| -   \% Rent/Own                          |             |                 |              |                 |
+|                                          |             |                 |              |                 |
+| -   Median Home age                      |             |                 |              |                 |
+|                                          |             |                 |              |                 |
+| Health Outcomes                          |             |                 |              |                 |
+|                                          |             |                 |              |                 |
+| -   Life Expectancy                      |             |                 |              |                 |
+|                                          |             |                 |              |                 |
+| -   Self-reported Physical Health        |             |                 |              |                 |
+|                                          |             |                 |              |                 |
+| -   Self-reported Mental Health          |             |                 |              |                 |
+|                                          |             |                 |              |                 |
+| -   Prevalent Chronic Conditions         |             |                 |              |                 |
++------------------------------------------+-------------+-----------------+--------------+-----------------+
+| Method 2: Lisa Bates?                    |             |                 |              |                 |
++------------------------------------------+-------------+-----------------+--------------+-----------------+
 
 ### Model Results
 
@@ -193,7 +255,7 @@ Model 0: Baseline models (replicating prior research)
 
 Model 1: Moderation / Interaction model
 
--   Health Outcomes \~ Redlining  \* Gentrification
+-   Health Outcomes \~ Redlining \* Gentrification
 
 Model 2: Mediation model
 
@@ -213,3 +275,58 @@ Replicate models with alternative definitions of Gentrification
 ### Implications
 
 ### Next Steps
+
+------------------------------------------------------------------------
+
+## Exploratory
+
+### Geography
+
+The Bureau of the Census defines a **place** as a concentration of population; a place may or may not have legally prescribed limits, powers, or functions. This concentration of population must have a name, be locally recognized, and not be part of any other place.
+
+Here, the map shows the overlays between all "City" Places as defined by the Legal/Statistical Area Description ([LSAD](https://www2.census.gov/geo/pdfs/reference/LSADCodes.pdf)) Codes, on top of historically HOLC redlined areas.
+
+Questions:
+
+-   Should all places that intersect with any redlined area be grouped together as the referent geography?
+
+-   Gentrification be considered within
+
+Places + Redlining
+
+```{r, echo = FALSE}
+selectInput(inputId = "state",
+            label = "Choose State",
+            choices = unique(holc$state))
+
+renderUI({
+  cities <- unique(holc[holc$state == input$state, "city"])
+  selectInput(inputId = "city",
+              label = "Select Redlined City",
+              choices = cities)
+})
+
+
+renderTmap({
+
+state_num <- holc_tracts[holc_tracts$state == input$state,]$STATEFP
+  
+  tm_shape(holc_tracts %>%
+             filter(city == input$city)) +
+    tm_polygons(col = "holc_grade_pop") +
+    tm_shape(places %>%
+               filter(`LSAD Description` == "City (suffix)",
+                      STATEFP == state_num)) +
+    tm_borders(col ="blue") +
+    tm_text(text = "NAME")
+})
+
+
+```
+
+Places + Gentrification
+
+### Unplaced Concepts
+
+-   Difficulty operationalizing gentrification - Noted early in 1986 Galster & Peacok in constructing Logistic least-squares using census variables to define gentrification.
+-   [Predicting gentrification using longitudinal census data \| Urban Spatial (urbanspatialanalysis.com)](http://urbanspatialanalysis.com/portfolio/predicting-gentrification-using-longitudinal-census-data/) Predicting
