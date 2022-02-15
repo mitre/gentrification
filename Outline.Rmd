@@ -49,7 +49,7 @@ People based place strategies have not always sought to improve social equity an
 
 The impact of redlining on present day health is well-documented, including asthma, birth outcomes, cancer, and poor physical and mental health. Redlining has also had direct effects on environmental exposures that like heat and food environment (poor housing qualitity?)
 
-Redlining locked into place
+Redlining solidified and exacerbated
 
 Present examples:
 
@@ -160,13 +160,48 @@ The Longitudinal Tract Data Base (LTDB) provides public-use tools to create esti
 
 -   Scripts \> `ltdb_cleaning.R`
 
+```{r}
+ltdb <- readRDS("outputs/ltdb_combined.RDS")
+
+head(ltdb)
+```
+
 #### American Community Survey (ACS) - 2000, 2019
 
 -   Scripts \> `acs_data_pull.R`
 
+```{r}
+acs_2012_processed <- readRDS("outputs/acs_2012.RDS")
+acs_2019_processed <- readRDS("outputs/acs_2019.RDS")
+
+head(acs_2012_processed)
+
+head(acs_2019_processed)
+```
+
 #### PLACES
 
--   Data \> `500_Cities__Local_Data_for_Better_Health__2019_release.csv`
+-   Raw Data \> `500_Cities__Local_Data_for_Better_Health__2019_release.csv`
+
+```{r}
+outcomes <- readRDS("outputs/outcomes.RDS")
+
+head(outcomes)
+```
+
+#### US Small-Area Life Expectancy Estimation Project (USALEEP)
+
+-   Raw Data \> `UA_A.csv`
+
+### Combined Dataset
+
+-   scripts \> `combine.R`
+
+```{r}
+combined <- readRDS("outputs/combined.RDS")
+
+head(combined)
+```
 
 ### Measures
 
@@ -190,7 +225,7 @@ The Longitudinal Tract Data Base (LTDB) provides public-use tools to create esti
 | Ken Steif                                                                                                     |                                                                                                                                                                      |                                                                                                                                                 |
 +---------------------------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
 
--   Scripts \> methods.R
+-   Scripts \> `methods.R`
 
     -   Governing (DONE)
 
