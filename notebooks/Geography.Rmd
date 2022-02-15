@@ -1,16 +1,19 @@
 ---
 title: "Geography Explore"
 output: html_document
+runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-# install.packages("tmap")
+options(tigris_use_cache = TRUE)
+
 library(tigris)
 library(sp)
 library(sf)
 library(tidyverse)
 library(tmap)
+library(shiny)
 ```
 
 ## Objective
@@ -28,73 +31,76 @@ library(tmap)
     -   Metropolitan Divisions (MetDiv)
     -   Places
 
-```{r explore_boundary_types}
-places <- places(cb = TRUE, state = "OR")
-
-tracts <- tracts(state = "OR", cb = TRUE)
-cbsa <- core_based_statistical_areas(cb = TRUE)
-  or_cbsa <- filter(cbsa, grepl("OR", NAME))
-
-csa <- combined_statistical_areas(cb = TRUE) 
-  or_csa <- filter(csa, grepl("OR", NAME))
-county <- counties(cb = TRUE, state = "OR")
-concity <- metro_divisions()
-  or_concity <- filter(concity, grepl("OR", NAME))
-
-or_county <- tm_shape(tracts) +
-  tm_polygons() +
-tm_shape(county) +
-  tm_borders(col = "red", alpha = 0.3)
-# tmap_save(or_county, "or_county.png")
-
-or_places <- tm_shape(tracts) +
-  tm_polygons() +
-tm_shape(places) +
-  tm_borders(col = "red", alpha = 0.3)
-# tmap_save(or_places, "or_places.png")
-
-
-or_cbsa <- tm_shape(tracts) +
-  tm_polygons() +
-tm_shape(or_cbsa) +
-  tm_borders(col = "red", alpha = 0.3)
-# tmap_save(or_cbsa, "or_cbsa.png")
-
-or_csa <- tm_shape(tracts) +
-  tm_polygons() +
-tm_shape(or_csa) +
-  tm_borders(col = "red", alpha = 0.3)
-# tmap_save(or_csa, "or_csa.png")
-
-tm_shape(tracts) +
-  tm_polygons() +
-tm_shape(or_concity) +
-  tm_borders(col = "red", alpha = 0.3)
-
-```
-
 ## Redlining & Places Geo Boundaries
 
+[Ch9GARM.pdf (census.gov)](https://www2.census.gov/geo/pdfs/reference/GARM/Ch9GARM.pdf)
+
+The Bureau of the Census defines a place as a concentration of population; a place may or may not have legally prescribed limits, powers, or functions. This concentration of population must have a name, be locally recognized, and not be part of any other place.
+
+[Legal/Statistical Area Description (LSAD) Codes (census.gov)](https://www2.census.gov/geo/pdfs/reference/LSADCodes.pdf)
+
 ```{r}
-state <- "OR"
-state_fips <- ""
 
 places <- readRDS("../outputs/geo_places.RDS")
 tracts <- readRDS("../outputs/geo_tracts.RDS")
 holc <- read.csv("../raw data/All_Population_Weighted_HOLC_Grades_pt2_Threshold.csv") %>%
   mutate(GEOID = as.character(GEOID))
+lsad <- readxl::read_xlsx("../raw data/LSAD_crosswalk.xlsx", n_max = 15)
 
-tracts <- merge(tracts, holc, by = "GEOID")
-state_tracts <- tracts %>% 
-  filter(STATEFP == state_fips)
-state_place <- places %>%
-  filter(STATEFP == state_fips)
+holc_tracts <- merge(tracts, holc, by = "GEOID")
+places <- left_join(places, lsad, by = "LSAD")
 
-tm_shape(state_tracts) +
-  tm_polygons(col = "holc_grade_pop") +
-  tm_shape(state_place) +
-  tm_borders(col = "red", alpha = 0.8)
+table(places$`LSAD Description`)
+```
+
+-   City (suffix)
+
+-   County (suffix)
+
+```{r, echo = FALSE}
+
+selectInput(inputId = "state",
+            label = "Choose State",
+            choices = unique(holc_tracts$state))
+
+renderUI({
+  cities <- unique(holc[holc$state == input$state, "city"])
+  selectInput(inputId = "city",
+              label = "Select Redlined City",
+              choices = cities)
+})
 
 
+renderTmap({
+
+state_num <- holc_tracts[holc_tracts$state == input$state,]$STATEFP
+  
+  tm_shape(name = "HOLC",
+           holc_tracts %>%
+             filter(city == input$city)) +
+    tm_polygons(col = "holc_grade_pop",
+                alpha = 0.7) +
+    
+    tm_shape(name = "LSAD Cities",
+             places %>%
+               filter(`LSAD Description` == "City (suffix)",
+                      STATEFP == state_num)) +
+    tm_borders(col ="#08589e", lwd = 1.5) +
+    tm_text(text = "NAME") +
+    
+    tm_shape(name = "LSAD Towns",
+             places %>%
+               filter(`LSAD Description` == "Town (suffix)",
+                      STATEFP == state_num)) +
+    tm_borders(col = "#4eb3d3", lwd = 1.5) +
+    tm_text(text = "NAME") +
+    
+       tm_shape(name = "LSAD CDP",
+             places %>%
+               filter(`LSAD Description` == "CDP (suffix)",
+                      STATEFP == state_num)) +
+    tm_borders(col = "#a8ddb5", lwd = 1.5) +
+    tm_text(text = "NAME")
+})
 
 ```
