@@ -68,16 +68,12 @@ ltdb_combined <- ltdb_combined %>%
 clean_ids <- function(data){
 
   data %>%
-<<<<<<< HEAD
+
   # Convert State, County, and Tract individual IDs to characters and remove NAs
   mutate_at(c("STATEA", "COUNTYA", "TRACTA"), as.character) %>%
   filter_at(c("STATEA", "COUNTYA", "TRACTA"), all_vars(!is.na(.))) %>%
   
   # Remove trailing 0s in the code  
-=======
-  mutate_at(c("STATEA", "COUNTYA", "TRACTA"), as.character) %>%
-  filter_at(c("STATEA", "COUNTYA", "TRACTA"), is.na) %>%
->>>>>>> efbbcadddff9e399d21f6c162a52b9d037c58298
   mutate(STATEA = substr(STATEA, 1,2),
           COUNTYA = substr(COUNTYA, 1,3),
           TRACTA = str_pad(TRACTA, width = 6, side = "left", pad = "0"),
