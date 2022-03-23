@@ -3,10 +3,11 @@ title: "Census-Based Gentrification Methods"
 author: "Karen Jiang"
 date: "3/1/2022"
 output: 
-  html_document:
-  toc: true
-  toc_depth: 3
-  toc_float: true
+  html_notebook:
+    css: "www/app.css"
+    toc: true
+    toc_depth: 3
+    toc_float: true
 runtime: shiny
 ---
 
@@ -18,6 +19,7 @@ library(tidyr)
 library(tmap)
 library(tigris)
 library(sf)
+library(MITREShiny)
 
 source(file = "scripts/shiny_prep.R")
 
@@ -36,7 +38,7 @@ theme_set(theme_minimal())
 
 ## Introduction
 
-Census-based gentrification definitions have often been used as a quantitative, quick way approiximate the difficult concept of gentrification.
+Census-based gentrification definitions have often been used as a quantitative, quick way approximate the difficult concept of gentrification.
 
 Difficulty operationalizing gentrification - Noted early in 1986 Galster & Peacok in constructing Logistic least-squares using census variables to define urban gentrification gentrification
 
@@ -70,7 +72,7 @@ The core set of indicators commonly use are:
 
 -   Education (% with Bachelors Degree)
 
-```{r eruptions, echo=FALSE}
+```{r core-explore, echo=FALSE}
 
 
   inputPanel(
@@ -110,19 +112,20 @@ renderPlot({
 
 ```
 
-### Median Household Income
-
 Eligibility threshold characterizes which set of tracts can be considered candidates for gentrification.
 
-Determination thresholds characterize what change is significant to capture neighborhood change
+Determination thresholds characterize what change is significant to capture neighborhood change.
 
-```{r, echo=FALSE}
+### Median Household Income
+
+
+```{r mhi, echo=FALSE}
 
   inputPanel(
-    sliderInput("eligibility", "Select Elgibility Threshold",
+    sliderInput("eligibility_mhi", "Select Elgibility Threshold",
                 min = 0, max = 1, value = 0.5, step = 0.1), 
     
-    sliderInput("determination", "Select Determination Threshold",
+    sliderInput("determination_mhi", "Select Determination Threshold",
                 min = 0, max = 1, value = 0.5, step = 0.1)
   )
   
@@ -143,55 +146,61 @@ Determination thresholds characterize what change is significant to capture neig
         mutate(Rank_end = percent_rank(`Median Household Income, Total`))
     })
     
-    labelled_data <- reactive({
+    labelled_data_mhi <- reactive({
       start_data() %>%
         inner_join(end_data(), by = "GEOID") %>% 
-        select(Rank_start, Rank_end, GEOID) %>%
-        mutate(Eligible = ifelse(Rank_start < input$eligibility, "Yes", "No"),
-               Determination = ifelse(Rank_end > input$determination & Eligible == "Yes",
+        select(Rank_start, Rank_end, GEOID, `Total Pop.y`) %>%
+        mutate(Eligible = ifelse(Rank_start < input$eligibility_mhi, "Yes", "No"),
+               Determination = ifelse(Rank_end > input$determination_mhi & Eligible == "Yes",
                                       "Yes", "No"),
-               Gentrified = ifelse(Eligible == "Yes" & Determination == "Yes", 
-                                   "Gentrified", NA))
+               `Gentrification Indicator (MHI)` = ifelse(Eligible == "Yes" & Determination == "Yes", 
+                                   "Yes", "No"))
     })
   
-    renderPlot({
-      labelled_data() %>%
-        ggplot(aes(x = Rank_start, y = Rank_end)) +
-        geom_point(aes(color = Eligible, alpha = Determination)) +
-        scale_alpha_manual(values = c(0.3, 1))+ 
-        theme(aspect.ratio = 1) +
-        labs(x = "Tract Percentile Rank in Start Decade",
-             y = "Tract Percentile Rank in End Decade")
-      
-    })
+
     
     fips <- reactive({fipsnames_cw[fipsnames_cw$STATE == input$state & 
                              fipsnames_cw$COUNTY == input$county,]
     })
     
-    tract_subset <- reactive({tracts %>%
+    tract_subset_mhi <- reactive({tracts %>%
         filter(STATEFP == fips()$STATE_FIP,
                COUNTYFP == fips()$COUNTY_FIP) %>%
-        merge(.,labelled_data(), by = "GEOID")
+        merge(.,labelled_data_mhi(), by = "GEOID")
       })
     
-    renderTmap({
-
-      tm_shape(tract_subset()) +
-      tm_polygons(col = "Gentrified",
-                  alpha = 0.4)
+    splitLayout(
+      renderPlot({
+        labelled_data_mhi() %>%
+          ggplot(aes(x = Rank_start, y = Rank_end)) +
+          geom_point(aes(color = Eligible, alpha = Determination, size = `Total Pop.y`)) +
+          scale_alpha_manual(values = c(0.3, 1))+ 
+          theme(aspect.ratio = 1) +
+          labs(x = "Tract Percentile Rank in Start Decade",
+               y = "Tract Percentile Rank in End Decade",
+               size = "Population in End Decade")
+        
+      }),
+      
+      renderTmap({
+        
+        tm_shape(tract_subset_mhi()) +
+          tm_polygons(col = "Gentrification Indicator (MHI)",
+                      alpha = 0.6)
       })
-
+      
+    )
+    
 ```
 
 ### Median Home Value
 
-```{r, echo=FALSE}
+```{r mhv, echo=FALSE}
   inputPanel(
-    sliderInput("eligibility", "Select Elgibility Threshold",
+    sliderInput("eligibility_mhv", "Select Eligibility Threshold",
                 min = 0, max = 1, value = 0.5, step = 0.1), 
     
-    sliderInput("determination", "Select Determination Threshold",
+    sliderInput("determination_mhv", "Select Determination Threshold",
                 min = 0, max = 1, value = 0.5, step = 0.1)
   )
   
@@ -215,37 +224,132 @@ Determination thresholds characterize what change is significant to capture neig
     labelled_data_mhv <- reactive({
       start_data_mhv() %>%
         inner_join(end_data_mhv(), by = "GEOID") %>% 
-        select(Rank_start, Rank_end, GEOID) %>%
-        mutate(Eligible = ifelse(Rank_start < input$eligibility, "Yes", "No"),
-               Determination = ifelse(Rank_end > input$determination & Eligible == "Yes",
+        select(Rank_start, Rank_end, GEOID, `Total Pop.y`) %>%
+        mutate(Eligible = ifelse(Rank_start < input$eligibility_mhv, "Yes", "No"),
+               Determination = ifelse(Rank_end > input$determination_mhv & Eligible == "Yes",
                                       "Yes", "No"),
-               Gentrified = ifelse(Eligible == "Yes" & Determination == "Yes", 
-                                   "Gentrified", NA))
+               `Gentrification Indicator (MHV)` = ifelse(Eligible == "Yes" & Determination == "Yes", 
+                                   "Yes", "No"))
     })
   
-    renderPlot({
-      labelled_data_mhv() %>%
-        ggplot(aes(x = Rank_start, y = Rank_end)) +
-        geom_point(aes(color = Eligible, alpha = Determination)) +
-        scale_alpha_manual(values = c(0.3, 1))+ 
-        theme(aspect.ratio = 1) +
-        labs(x = "Tract Percentile Rank in Start Decade",
-             y = "Tract Percentile Rank in End Decade")
-      
-    })
-    
-
-    
     tract_subset_mhv <- reactive({tracts %>%
         filter(STATEFP == fips()$STATE_FIP,
                COUNTYFP == fips()$COUNTY_FIP) %>%
         merge(.,labelled_data_mhv(), by = "GEOID")
-      })
+    })
     
-    renderTmap({
+    splitLayout(
+      renderPlot({ 
+        labelled_data_mhv() %>%
+          ggplot(aes(x = Rank_start, y = Rank_end)) +
+          geom_point(aes(color = Eligible, alpha = Determination, size = `Total Pop.y`)) +
+          scale_alpha_manual(values = c(0.3, 1))+ 
+          theme(aspect.ratio = 1) +
+          labs(x = "Tract Percentile Rank in Start Decade",
+               y = "Tract Percentile Rank in End Decade",
+               size = "Population in End Decade")
+        
+      }),
+      
+      renderTmap({
+        
+        tm_shape(tract_subset_mhv()) +
+          tm_polygons(col = "Gentrification Indicator (MHV)",
+                      alpha = 0.4)
+      })
+    )
+```
 
-      tm_shape(tract_subset_mhv()) +
-      tm_polygons(col = "Gentrified",
-                  alpha = 0.4)
+### Education (% with 4-year College Degree or More)
+
+```{r edu, echo=FALSE}
+  inputPanel(
+    sliderInput("determination_edu", "Select Determination Threshold",
+                min = 0, max = 1, value = 0.66, step = 0.1)
+  )
+  
+  
+    start_data_edu <- reactive({ 
+      combined_indicators %>%
+        filter(YEAR == input$range[1],
+               STATE == input$state,
+               COUNTY == input$county) %>%
+        mutate(Rank_start = percent_rank(`Percent with 4-year College Degree or More`))
+    })
+    
+    end_data_edu <- reactive({  
+      combined_indicators %>%
+        filter(YEAR == input$range[2],
+               STATE == input$state,
+               COUNTY == input$county) %>%
+        mutate(Rank_end = percent_rank(`Percent with 4-year College Degree or More`))
+    })
+    
+    labelled_data_edu <- reactive({
+      start_data_edu() %>%
+        inner_join(end_data_edu(), by = "GEOID") %>% 
+        select(Rank_start, Rank_end, GEOID, `Total Pop.y`) %>%
+        mutate(Determination = ifelse(Rank_end > input$determination_edu,
+                                      "Yes", "No"),
+               `Gentrification Indicator (Education)` = ifelse(Determination == "Yes", 
+                                   "Yes", "No"))
+    })
+  
+    tract_subset_edu <- reactive({tracts %>%
+        filter(STATEFP == fips()$STATE_FIP,
+               COUNTYFP == fips()$COUNTY_FIP) %>%
+        merge(.,labelled_data_edu(), by = "GEOID")
+    })
+    
+    splitLayout(
+      renderPlot({ 
+        labelled_data_edu() %>%
+          ggplot(aes(x = Rank_start, y = Rank_end)) +
+          geom_point(aes(color = Determination, alpha = Determination, size = `Total Pop.y`)) +
+          scale_alpha_manual(values = c(0.3, 1))+ 
+          theme(aspect.ratio = 1) +
+          labs(x = "Tract Percentile Rank in Start Decade",
+               y = "Tract Percentile Rank in End Decade",
+               size = "Population in End Decade")
+        
+      }),
+      
+      renderTmap({
+        tm_shape(tract_subset_edu()) +
+          tm_polygons(col = "Gentrification Indicator (Education)",
+                      alpha = 0.4)
+      })
+    )
+```
+
+
+
+
+## Combined Indicators
+Census Tracts that meet the determination thresholds in Median Household Income, Median Home Value, and Education are consequently classified as gentrified.
+
+```{r, echo=FALSE}
+combined_labelled_data <- reactive({
+  labelled_data_mhi() %>%
+  left_join(labelled_data_mhv(), by = "GEOID") %>%
+  left_join(labelled_data_edu(), by = "GEOID") %>%
+    mutate(Gentrified = ifelse(`Gentrification Indicator (MHI)` == "Yes" &
+             `Gentrification Indicator (MHV)` == "Yes" &
+             `Gentrification Indicator (Education)` == "Yes",
+             "Yes", "No")
+           )
+})
+
+ combined_tract_subset <- reactive({tracts %>%
+        filter(STATEFP == fips()$STATE_FIP,
+               COUNTYFP == fips()$COUNTY_FIP) %>%
+        merge(.,combined_labelled_data(), by = "GEOID")
+    })
+ 
+ renderTmap({
+        tm_shape(combined_tract_subset()) +
+          tm_polygons(col = "Gentrified",
+                      alpha = 0.4)
       })
 ```
+
