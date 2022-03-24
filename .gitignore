@@ -11,6 +11,8 @@
 *.png
 *.pptx
 
+*.nb.html
+
 .DS_Store
 .RDataTmp
 
