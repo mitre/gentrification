@@ -92,7 +92,7 @@ The core set of indicators commonly use are:
 renderPlot({
   
   combined_indicators %>%
-    select(YEAR, STATE, COUNTY, `Total Pop`, `Median Household Income, Total`,
+    select(YEAR, STATE, COUNTY, `Median Rent`, `Median Household Income, Total`,
            `Median Home Value`, `Percent with 4-year College Degree or More`) %>%
     gather(key = "Feature", value = "Value", -YEAR, -STATE, -COUNTY) %>%
     filter(YEAR %in% input$range,
@@ -193,7 +193,7 @@ Determination thresholds characterize what change is significant to capture neig
     
 ```
 
-### Median Home Value
+### Median Home Value Indicator
 
 ```{r mhv, echo=FALSE}
   inputPanel(
@@ -260,7 +260,78 @@ Determination thresholds characterize what change is significant to capture neig
     )
 ```
 
-### Education (% with 4-year College Degree or More)
+### Median Rent Indicator
+
+Including a Median Rent Indicator means that only tracts that started with a median rental value below some X threshold were eligible to gentrify, and if among those tracts, ended up above the top percentile
+
+```{r rent, echo=FALSE}
+  inputPanel(
+    sliderInput("eligibility_rent", "Select Eligibility Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1), 
+    
+    sliderInput("determination_rent", "Select Determination Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1)
+  )
+  
+  
+    start_data_rent <- reactive({ 
+      combined_indicators %>%
+        filter(YEAR == input$range[1],
+               STATE == input$state,
+               COUNTY == input$county) %>%
+        mutate(Rank_start = percent_rank(`Median Rent`))
+    })
+    
+    end_data_rent <- reactive({  
+      combined_indicators %>%
+        filter(YEAR == input$range[2],
+               STATE == input$state,
+               COUNTY == input$county) %>%
+        mutate(Rank_end = percent_rank(`Median Rent`))
+    })
+    
+    labelled_data_rent <- reactive({
+      start_data_rent() %>%
+        inner_join(end_data_rent(), by = "GEOID") %>% 
+        select(Rank_start, Rank_end, GEOID, `Total Pop.y`) %>%
+        mutate(Eligible = ifelse(Rank_start < input$eligibility_rent, "Yes", "No"),
+               Determination = ifelse(Rank_end > input$determination_rent & Eligible == "Yes",
+                                      "Yes", "No"),
+               `Gentrification Indicator (Rent)` = ifelse(Eligible == "Yes" & Determination == "Yes", 
+                                   "Yes", "No"))
+    })
+  
+    tract_subset_rent <- reactive({tracts %>%
+        filter(STATEFP == fips()$STATE_FIP,
+               COUNTYFP == fips()$COUNTY_FIP) %>%
+        merge(.,labelled_data_rent(), by = "GEOID")
+    })
+    
+    splitLayout(
+      renderPlot({ 
+        labelled_data_rent() %>%
+          ggplot(aes(x = Rank_start, y = Rank_end)) +
+          geom_point(aes(color = Eligible, alpha = Determination, size = `Total Pop.y`)) +
+          scale_alpha_manual(values = c(0.3, 1))+ 
+          theme(aspect.ratio = 1) +
+          labs(x = "Tract Percentile Rank in Start Decade",
+               y = "Tract Percentile Rank in End Decade",
+               size = "Population in End Decade")
+        
+      }),
+      
+      renderTmap({
+        
+        tm_shape(tract_subset_rent()) +
+          tm_polygons(col = "Gentrification Indicator (Rent)",
+                      alpha = 0.4)
+      })
+    )
+```
+
+### Education Indicator
+
+Including an Education Indicator means that only tracts with a population above a pre-defined percentage threshold of residents with a 4-year College Degree or More can be considered gentrified.
 
 ```{r edu, echo=FALSE}
   inputPanel(
@@ -329,7 +400,21 @@ Determination thresholds characterize what change is significant to capture neig
 Census Tracts that meet the determination thresholds in Median Household Income, Median Home Value, and Education are consequently classified as gentrified.
 
 ```{r, echo=FALSE}
+
+inputPanel(
+  checkboxInput("mhi", "Include Median Household Income Indicator", value = TRUE),
+  
+  checkboxInput("mhv", "Include Median Home Value Indicator", value = TRUE),
+  
+  checkboxInput("rent", "Include Median Rent Indicator", value = TRUE),
+  
+  checkboxInput("edu", "Include Education Indicator", value = FALSE)
+
+)
+
 combined_labelled_data <- reactive({
+  
+  
   labelled_data_mhi() %>%
   left_join(labelled_data_mhv(), by = "GEOID") %>%
   left_join(labelled_data_edu(), by = "GEOID") %>%
