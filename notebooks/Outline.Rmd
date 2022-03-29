@@ -16,28 +16,30 @@ library(sf)
 library(tmap)
 
 
-places <- readRDS("outputs/geo_places.RDS")
-tracts <- readRDS("outputs/geo_tracts.RDS")
-holc <- read.csv("raw data/All_Population_Weighted_HOLC_Grades_pt2_Threshold.csv") %>%
+# Load in data
+places <- readRDS("../outputs/geo_places.RDS") # Census Places Shapefiles
+tracts <- readRDS("../outputs/geo_tracts.RDS") # Tract Shapefiles
+holc <- read.csv("../raw data/All_Population_Weighted_HOLC_Grades_pt2_Threshold.csv") %>%
   mutate(GEOID = str_pad(GEOID,
                          width = 11, 
                          pad = "0", 
                          side="left"))
-lsad <- readxl::read_xlsx("raw data/LSAD_crosswalk.xlsx", n_max = 15)
 
+lsad <- readxl::read_xlsx("../raw data/LSAD_crosswalk.xlsx", n_max = 15) # Census Places designation types
+
+
+# Combine Data
 holc_tracts <- merge(tracts, holc, by = "GEOID")
 places <- left_join(places, lsad, by = "LSAD")
 ```
 
-# Table of Contents
+## Abstract
 
 Hypothesis: Gentrification Mediates the Effects of Redlining on modern day health outcomes
 
 Goal: Researchers should include Gentrification in models that look at redlining on present day health outcomes
 
 Impact: Importance in correctly identifying gentrification at a national level to include guardrails for federal programs that adopt place-based interventions.
-
-## Abstract
 
 ## Background & Lit Review
 
@@ -127,6 +129,10 @@ Place-based policies and Public Health: The road to health rural people and plac
 
 -   [Smith Theory of /Gentrification (cuny.edu)](https://eportfolios.macaulay.cuny.edu/chin15/files/2015/02/Smith-Theory-of-_Gentrification.pdf) A back to the City Movement by Capital, not People
 
+-   Gentrification and the Role of Public Investment:
+
+    -   Gentrification is tied to historical patterns of residential segregation; segregated neighborhoods experience the "double insult---a 'one-two' knockout" of neglect and white flight in the 1950s through 1970s followed by the forces of gentrifying revitalization since the 1980s
+
 ### Gentrification & Health
 
 -   results show mixed results, suggests positive association between gentrification for white folks, negative for black americans
@@ -161,7 +167,7 @@ The Longitudinal Tract Data Base (LTDB) provides public-use tools to create esti
 -   Scripts \> `ltdb_cleaning.R`
 
 ```{r}
-ltdb <- readRDS("outputs/ltdb_combined.RDS")
+ltdb <- readRDS("../outputs/ltdb_combined.RDS")
 
 head(ltdb)
 ```
@@ -171,8 +177,8 @@ head(ltdb)
 -   Scripts \> `acs_data_pull.R`
 
 ```{r}
-acs_2012_processed <- readRDS("outputs/acs_2012.RDS")
-acs_2019_processed <- readRDS("outputs/acs_2019.RDS")
+acs_2012_processed <- readRDS("../outputs/acs_2012.RDS")
+acs_2019_processed <- readRDS("../outputs/acs_2019.RDS")
 
 head(acs_2012_processed)
 
@@ -184,7 +190,7 @@ head(acs_2019_processed)
 -   Raw Data \> `500_Cities__Local_Data_for_Better_Health__2019_release.csv`
 
 ```{r}
-outcomes <- readRDS("outputs/outcomes.RDS")
+outcomes <- readRDS("../outputs/outcomes.RDS")
 
 head(outcomes)
 ```
@@ -198,7 +204,7 @@ head(outcomes)
 -   scripts \> `combine.R`
 
 ```{r}
-combined <- readRDS("outputs/combined.RDS")
+combined <- readRDS("../outputs/combined.RDS")
 
 head(combined)
 ```
@@ -238,14 +244,6 @@ Life expectancy - [NVSS - United States Small-Area Life Expectancy Estimates Pro
 ## Results
 
 ### Table 1: Descriptive Statistics
-
-Tasks: Decide which methods to use
-
--   Lance Freeman
-
--   Lisa Bates?
-
--   
 
 +------------------------------------------+-------------+-----------------+--------------+-----------------+
 | Characteristics of Tracts                | Redlined    | Redlined        | Not Redlined | Not Redlined    |

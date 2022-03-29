@@ -1,18 +1,16 @@
 ---
 title: "Census-Based Gentrification Methods"
-author: "Karen Jiang"
-date: "3/1/2022"
 output: 
   html_notebook:
-    css: "www/app.css"
     toc: true
     toc_depth: 3
     toc_float: true
 runtime: shiny
+bibliography: references.bib
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -21,52 +19,41 @@ library(tigris)
 library(sf)
 library(MITREShiny)
 
-source(file = "scripts/shiny_prep.R")
+setwd("~/Documents/MIP/gentrification/notebooks")
+tracts <- readRDS("../outputs/geo_tracts.RDS")
 
-tracts <- readRDS("outputs/geo_tracts.RDS")
-combined_indicators$YEAR <- ifelse(combined_indicators$YEAR == 2019, 
-                                   2020, 
-                                   combined_indicators$YEAR)
-combined_indicators$STATE_FIP <- substr(combined_indicators$GEOID,1,2)
-combined_indicators$COUNTY_FIP <- substr(combined_indicators$GEOID,3,5)
+combined_indicators <- readRDS("../outputs/combined_indicators.RDS") %>%
+  mutate(YEAR = ifelse(YEAR == 2019, 2020, YEAR),
+         STATE_FIP = substr(GEOID, 1,2),
+         COUNTY_FIP = substr(GEOID, 3,5))
 
 fipsnames_cw <- unique(combined_indicators[,c("STATE", "COUNTY", "STATE_FIP", "COUNTY_FIP")])
-
 
 theme_set(theme_minimal())
 ```
 
 ## Introduction
 
+The purpose of this document is to help users understand how the measures and indicators used in census-based gentrification affect which areas are classified as gentrified. In even as early as 1986, George Galster & Stephen Peacock reported "great sensitivity in the number and location of gentrified tracts to the definition chosen and stringency applied", when examining areal changes in Philadelphia between 1970 - 1980. [@galster1986] This definition explorer document hopes to visualize and elucidate some of those sensitivities.
+
 Census-based gentrification definitions have often been used as a quantitative, quick way approximate the difficult concept of gentrification.
 
-Difficulty operationalizing gentrification - Noted early in 1986 Galster & Peacok in constructing Logistic least-squares using census variables to define urban gentrification gentrification
+However, this has been little consensus among researchers in defining gentrification, much less in operationalizing the definition. In a systematic review of gentrification definitions used in epidemiologic research, 18 different indicators were used to capture and measure gentrification including Median Household Income, Education, Rent, Race, Home Value, Poverty, etc. [@Bhavsar2020]
 
--   proportion black
+Two common concepts are used in defining gentrification.
 
--   proportion college educated
+1.  Neighborhoods are **eligible** to be gentrified.
+2.  Neighborhoods that meet threshold criteria are **determined** to be gentrified.
 
--   real incomes
+Indicators can be used to define eligibility, determination, or both.
 
--   real property values
-
-Wyly and Hammel
-
-Lance Freeman
-
-## Purpose
-
-The purpose of this document is to help users understand how researcher's choices in census-based gentrification affect which areas are classified as gentrified.
+In addition to areal indicators, time period of evaluation and reference geographic region are also important decisions which may impact the quantification of tracts as gentrified.
 
 ## Explore
 
-### Core Set of Indicators
-
-The core set of indicators commonly use are:
+The three most commonly used indicators used in quantitative definitions of gentrification are:
 
 -   Median Household Income
-
--   Median Home Value
 
 -   Median Rent
 
@@ -92,8 +79,10 @@ The core set of indicators commonly use are:
 renderPlot({
   
   combined_indicators %>%
-    select(YEAR, STATE, COUNTY, `Median Rent`, `Median Household Income, Total`,
-           `Median Home Value`, `Percent with 4-year College Degree or More`) %>%
+    select(YEAR, STATE, COUNTY, 
+           `Median Rent`, 
+           `Median Household Income, Total`,
+           `Percent with 4-year College Degree or More`) %>%
     gather(key = "Feature", value = "Value", -YEAR, -STATE, -COUNTY) %>%
     filter(YEAR %in% input$range,
            STATE == input$state,
@@ -117,7 +106,6 @@ Eligibility threshold characterizes which set of tracts can be considered candid
 Determination thresholds characterize what change is significant to capture neighborhood change.
 
 ### Median Household Income
-
 
 ```{r mhi, echo=FALSE}
 
@@ -191,73 +179,6 @@ Determination thresholds characterize what change is significant to capture neig
       
     )
     
-```
-
-### Median Home Value Indicator
-
-```{r mhv, echo=FALSE}
-  inputPanel(
-    sliderInput("eligibility_mhv", "Select Eligibility Threshold",
-                min = 0, max = 1, value = 0.5, step = 0.1), 
-    
-    sliderInput("determination_mhv", "Select Determination Threshold",
-                min = 0, max = 1, value = 0.5, step = 0.1)
-  )
-  
-  
-    start_data_mhv <- reactive({ 
-      combined_indicators %>%
-        filter(YEAR == input$range[1],
-               STATE == input$state,
-               COUNTY == input$county) %>%
-        mutate(Rank_start = percent_rank(`Median Home Value`))
-    })
-    
-    end_data_mhv <- reactive({  
-      combined_indicators %>%
-        filter(YEAR == input$range[2],
-               STATE == input$state,
-               COUNTY == input$county) %>%
-        mutate(Rank_end = percent_rank(`Median Home Value`))
-    })
-    
-    labelled_data_mhv <- reactive({
-      start_data_mhv() %>%
-        inner_join(end_data_mhv(), by = "GEOID") %>% 
-        select(Rank_start, Rank_end, GEOID, `Total Pop.y`) %>%
-        mutate(Eligible = ifelse(Rank_start < input$eligibility_mhv, "Yes", "No"),
-               Determination = ifelse(Rank_end > input$determination_mhv & Eligible == "Yes",
-                                      "Yes", "No"),
-               `Gentrification Indicator (MHV)` = ifelse(Eligible == "Yes" & Determination == "Yes", 
-                                   "Yes", "No"))
-    })
-  
-    tract_subset_mhv <- reactive({tracts %>%
-        filter(STATEFP == fips()$STATE_FIP,
-               COUNTYFP == fips()$COUNTY_FIP) %>%
-        merge(.,labelled_data_mhv(), by = "GEOID")
-    })
-    
-    splitLayout(
-      renderPlot({ 
-        labelled_data_mhv() %>%
-          ggplot(aes(x = Rank_start, y = Rank_end)) +
-          geom_point(aes(color = Eligible, alpha = Determination, size = `Total Pop.y`)) +
-          scale_alpha_manual(values = c(0.3, 1))+ 
-          theme(aspect.ratio = 1) +
-          labs(x = "Tract Percentile Rank in Start Decade",
-               y = "Tract Percentile Rank in End Decade",
-               size = "Population in End Decade")
-        
-      }),
-      
-      renderTmap({
-        
-        tm_shape(tract_subset_mhv()) +
-          tm_polygons(col = "Gentrification Indicator (MHV)",
-                      alpha = 0.4)
-      })
-    )
 ```
 
 ### Median Rent Indicator
@@ -393,22 +314,89 @@ Including an Education Indicator means that only tracts with a population above 
     )
 ```
 
+### Additional Indicators
 
+#### Median Home Value Indicator
 
+```{r mhv, echo=FALSE, collapse=TRUE}
+  inputPanel(
+    sliderInput("eligibility_mhv", "Select Eligibility Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1), 
+    
+    sliderInput("determination_mhv", "Select Determination Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1)
+  )
+  
+  
+    start_data_mhv <- reactive({ 
+      combined_indicators %>%
+        filter(YEAR == input$range[1],
+               STATE == input$state,
+               COUNTY == input$county) %>%
+        mutate(Rank_start = percent_rank(`Median Home Value`))
+    })
+    
+    end_data_mhv <- reactive({  
+      combined_indicators %>%
+        filter(YEAR == input$range[2],
+               STATE == input$state,
+               COUNTY == input$county) %>%
+        mutate(Rank_end = percent_rank(`Median Home Value`))
+    })
+    
+    labelled_data_mhv <- reactive({
+      start_data_mhv() %>%
+        inner_join(end_data_mhv(), by = "GEOID") %>% 
+        select(Rank_start, Rank_end, GEOID, `Total Pop.y`) %>%
+        mutate(Eligible = ifelse(Rank_start < input$eligibility_mhv, "Yes", "No"),
+               Determination = ifelse(Rank_end > input$determination_mhv & Eligible == "Yes",
+                                      "Yes", "No"),
+               `Gentrification Indicator (MHV)` = ifelse(Eligible == "Yes" & Determination == "Yes", 
+                                   "Yes", "No"))
+    })
+  
+    tract_subset_mhv <- reactive({tracts %>%
+        filter(STATEFP == fips()$STATE_FIP,
+               COUNTYFP == fips()$COUNTY_FIP) %>%
+        merge(.,labelled_data_mhv(), by = "GEOID")
+    })
+    
+    splitLayout(
+      renderPlot({ 
+        labelled_data_mhv() %>%
+          ggplot(aes(x = Rank_start, y = Rank_end)) +
+          geom_point(aes(color = Eligible, alpha = Determination, size = `Total Pop.y`)) +
+          scale_alpha_manual(values = c(0.3, 1))+ 
+          theme(aspect.ratio = 1) +
+          labs(x = "Tract Percentile Rank in Start Decade",
+               y = "Tract Percentile Rank in End Decade",
+               size = "Population in End Decade")
+        
+      }),
+      
+      renderTmap({
+        
+        tm_shape(tract_subset_mhv()) +
+          tm_polygons(col = "Gentrification Indicator (MHV)",
+                      alpha = 0.4)
+      })
+    )
+```
 
-## Combined Indicators
-Census Tracts that meet the determination thresholds in Median Household Income, Median Home Value, and Education are consequently classified as gentrified.
+## Output and Download
+
+Census Tracts that meet the determination thresholds in Median Household Income, Median Rent, and Education are consequently classified as gentrified.
 
 ```{r, echo=FALSE}
 
 inputPanel(
   checkboxInput("mhi", "Include Median Household Income Indicator", value = TRUE),
   
-  checkboxInput("mhv", "Include Median Home Value Indicator", value = TRUE),
-  
   checkboxInput("rent", "Include Median Rent Indicator", value = TRUE),
   
-  checkboxInput("edu", "Include Education Indicator", value = FALSE)
+  checkboxInput("edu", "Include Education Indicator", value = TRUE),
+  
+  checkboxInput("mhv", "Include Median Home Value Indicator", value = FALSE)
 
 )
 
@@ -437,4 +425,3 @@ combined_labelled_data <- reactive({
                       alpha = 0.4)
       })
 ```
-
