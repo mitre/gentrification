@@ -400,28 +400,42 @@ inputPanel(
 
 )
 
-combined_labelled_data <- reactive({
+
   
+  starter <- tibble(GEOID = "")
   
-  labelled_data_mhi() %>%
-  left_join(labelled_data_mhv(), by = "GEOID") %>%
-  left_join(labelled_data_edu(), by = "GEOID") %>%
-    mutate(Gentrified = ifelse(`Gentrification Indicator (MHI)` == "Yes" &
-             `Gentrification Indicator (MHV)` == "Yes" &
-             `Gentrification Indicator (Education)` == "Yes",
-             "Yes", "No")
-           )
-})
+  right_join_if_true <- function(left_data, right_data, by, suffix, bool){
+    if (bool) {
+      right_join(left_data, right_data, by = by, suffix = suffix)
+    } else {left_data}
+  }
+  
+  indicators <- reactive({
+    starter %>%
+      right_join_if_true(labelled_data_mhi(), by = "GEOID", suffix = c("", " MHI"), input$mhi) %>%
+      right_join_if_true(labelled_data_rent(), by = "GEOID", suffix = c("", " Rent"), input$rent) %>%
+      right_join_if_true(labelled_data_edu(), by = "GEOID", suffix = c("", " Edu"), input$edu) %>%
+      right_join_if_true(labelled_data_mhv(), by = "GEOID", suffix = c("", " MHV"), input$mhv) %>%
+      select(GEOID, starts_with("Gentrification Indicator")) %>%
+      mutate(`Number of Indicators` = rowSums(.[,-1] == "Yes"))
+  })
+  
+
 
  combined_tract_subset <- reactive({tracts %>%
         filter(STATEFP == fips()$STATE_FIP,
                COUNTYFP == fips()$COUNTY_FIP) %>%
-        merge(.,combined_labelled_data(), by = "GEOID")
+        merge(.,indicators(), by = "GEOID")
     })
+
  
  renderTmap({
         tm_shape(combined_tract_subset()) +
-          tm_polygons(col = "Gentrified",
+          tm_polygons(col = "Number of Indicators",
                       alpha = 0.4)
       })
+ 
+  renderDataTable({
+   indicators()
+ })
 ```
