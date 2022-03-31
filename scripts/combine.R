@@ -6,7 +6,14 @@ fix_county_names <- function(data){
   data %>%
     mutate(COUNTY = ifelse(COUNTY %in% c("Du Page", "Dupage", "DuPage"), yes = "DuPage", no = COUNTY),
            COUNTY = ifelse(COUNTY %in% c("De Soto", "Desoto", "DeSoto"), yes = "DeSoto", no = COUNTY ),
-           COUNTY = ifelse(COUNTY %in% c("La Porte", "Laporte", "LaPorte"),yes = "La Porte", no = COUNTY)) %>%
+           COUNTY = ifelse(COUNTY %in% c("La Porte", "Laporte", "LaPorte"),yes = "La Porte", no = COUNTY),
+           COUNTY = ifelse(COUNTY %in% c("La Porte", "Laporte", "LaPorte"),yes = "La Porte", no = COUNTY),
+           COUNTY = str_remove(COUNTY, " Borough"),
+           COUNTY = str_remove(COUNTY, " Census Area"),
+           COUNTY = str_remove(COUNTY, " Municipality"),
+           COUNTY = str_replace(COUNTY, "St ", "St. "),
+           COUNTY = str_replace(COUNTY, "Prince Georges", "Prince George's"),
+           COUNTY = str_to_title(COUNTY)) %>%
     unique()
 }
 
@@ -73,24 +80,6 @@ final <- final %>% left_join(redlining, by = "GEOID") %>%
   left_join(places, by = c("GEOID" = "TractFIPS")) %>%
   left_join(leep, by = c("GEOID" = "TractID"))
 
-# duplicates <- final %>% group_by(GEOID, YEAR) %>%
-#   count() %>%
-#   filter(n == 2)
-# 
-# 
-# 
-# final %>%
-#   filter(GEOID %in% duplicates$GEOID) %>% view()
-# colSums(is.na(final))
-
-# Cleaning names
-# tibble()
-# "La Porte" = "Laporte"
-# "La Porte" = "La Porte",
-# "De Soto" = "Desoto",
-# "De Soto" = "DeSoto",
-# "Du Page" = "Dupage",
-# "Du Page" = "DuPage"
 
 
 saveRDS(final, "outputs/combined.RDS")
