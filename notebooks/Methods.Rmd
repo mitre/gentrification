@@ -1,10 +1,11 @@
 ---
 title: "Census-Based Gentrification Methods"
 output: 
-  html_notebook:
+  html_notebook: 
     toc: true
     toc_depth: 3
     toc_float: true
+    css:  "www/app.css"
 runtime: shiny
 bibliography: references.bib
 ---
@@ -22,7 +23,7 @@ library(MITREShiny)
 setwd("~/Documents/MIP/gentrification/notebooks")
 tracts <- readRDS("../outputs/geo_tracts.RDS")
 
-combined_indicators <- readRDS("../outputs/combined_indicators.RDS") %>%
+combined_indicators <- readRDS("../outputs/combined.RDS") %>%
   mutate(YEAR = ifelse(YEAR == 2019, 2020, YEAR),
          STATE_FIP = substr(GEOID, 1,2),
          COUNTY_FIP = substr(GEOID, 3,5))
@@ -70,7 +71,7 @@ The three most commonly used indicators used in quantitative definitions of gent
                 choices = sort(unique(combined_indicators$STATE)), selected = "Oregon"),
     
     renderUI({
-      counties <- unique(combined_indicators[combined_indicators$STATE == input$state, "COUNTY"])
+      counties <- sort(unique(combined_indicators[combined_indicators$STATE == input$state, "COUNTY"]))
       selectInput("county", label = "Choose a County:",
                   choices = counties, selected = "Multnomah")
     })

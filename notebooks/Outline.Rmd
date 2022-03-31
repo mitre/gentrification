@@ -1,10 +1,13 @@
 ---
 title: "Gentrification Outline"
 output: 
-  html_notebook:
+  html_notebook params:
     toc: true
+    toc_depth: 3
     toc_float: true
+    css:  "www/app.css"
   runtime: shiny
+stats_list: NA
 ---
 
 ```{r setup, include = FALSE}
