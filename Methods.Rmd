@@ -19,16 +19,24 @@ library(tmap)
 library(tigris)
 library(sf)
 library(MITREShiny)
+library(DT)
 
 setwd("~/Documents/MIP/gentrification/notebooks")
 tracts <- readRDS("../outputs/geo_tracts.RDS")
 
-combined_indicators <- readRDS("../outputs/combined.RDS") %>%
+combined <- readRDS("../outputs/combined.RDS") %>%
   mutate(YEAR = ifelse(YEAR == 2019, 2020, YEAR),
          STATE_FIP = substr(GEOID, 1,2),
          COUNTY_FIP = substr(GEOID, 3,5))
 
-fipsnames_cw <- unique(combined_indicators[,c("STATE", "COUNTY", "STATE_FIP", "COUNTY_FIP")])
+fipsnames_cw <- unique(combined[,c("STATE", "COUNTY", "STATE_FIP", "COUNTY_FIP")])
+
+# holc <- read.csv("../raw data/All_Population_Weighted_HOLC_Grades_pt2_Threshold.csv",
+#                  colClasses = c("character", "character", "character", "double"))
+# lexp <- read.csv("../raw data/US_A.CSV",
+#                  colClasses = c("character","character","character","character","double", "double","integer"),
+#                  check.names = F)
+# colnames(lexp) <- c("GEOID", "STATE", "COUNTY", "TRACT", "Life Expectancy", "SE", "Flag")
 
 theme_set(theme_minimal())
 ```
@@ -68,10 +76,10 @@ The three most commonly used indicators used in quantitative definitions of gent
                 min = 1970, max = 2020, value = c(2000, 2020), step = 10, sep = ""),
     
     selectInput("state", label = "Choose a State:",
-                choices = sort(unique(combined_indicators$STATE)), selected = "Oregon"),
+                choices = sort(unique(combined$STATE)), selected = "Oregon"),
     
     renderUI({
-      counties <- sort(unique(combined_indicators[combined_indicators$STATE == input$state, "COUNTY"]))
+      counties <- sort(unique(combined[combined$STATE == input$state, "COUNTY"]))
       selectInput("county", label = "Choose a County:",
                   choices = counties, selected = "Multnomah")
     })
@@ -79,7 +87,7 @@ The three most commonly used indicators used in quantitative definitions of gent
   
 renderPlot({
   
-  combined_indicators %>%
+  combined %>%
     select(YEAR, STATE, COUNTY, 
            `Median Rent`, 
            `Median Household Income, Total`,
@@ -120,7 +128,7 @@ Determination thresholds characterize what change is significant to capture neig
   
   
     start_data <- reactive({ 
-      combined_indicators %>%
+      combined %>%
         filter(YEAR == input$range[1],
                STATE == input$state,
                COUNTY == input$county) %>%
@@ -128,7 +136,7 @@ Determination thresholds characterize what change is significant to capture neig
     })
     
     end_data <- reactive({  
-      combined_indicators %>%
+      combined %>%
         filter(YEAR == input$range[2],
                STATE == input$state,
                COUNTY == input$county) %>%
@@ -197,7 +205,7 @@ Including a Median Rent Indicator means that only tracts that started with a med
   
   
     start_data_rent <- reactive({ 
-      combined_indicators %>%
+      combined %>%
         filter(YEAR == input$range[1],
                STATE == input$state,
                COUNTY == input$county) %>%
@@ -205,7 +213,7 @@ Including a Median Rent Indicator means that only tracts that started with a med
     })
     
     end_data_rent <- reactive({  
-      combined_indicators %>%
+      combined %>%
         filter(YEAR == input$range[2],
                STATE == input$state,
                COUNTY == input$county) %>%
@@ -263,7 +271,7 @@ Including an Education Indicator means that only tracts with a population above 
   
   
     start_data_edu <- reactive({ 
-      combined_indicators %>%
+      combined %>%
         filter(YEAR == input$range[1],
                STATE == input$state,
                COUNTY == input$county) %>%
@@ -271,7 +279,7 @@ Including an Education Indicator means that only tracts with a population above 
     })
     
     end_data_edu <- reactive({  
-      combined_indicators %>%
+      combined %>%
         filter(YEAR == input$range[2],
                STATE == input$state,
                COUNTY == input$county) %>%
@@ -330,7 +338,7 @@ Including an Education Indicator means that only tracts with a population above 
   
   
     start_data_mhv <- reactive({ 
-      combined_indicators %>%
+      combined %>%
         filter(YEAR == input$range[1],
                STATE == input$state,
                COUNTY == input$county) %>%
@@ -338,7 +346,7 @@ Including an Education Indicator means that only tracts with a population above 
     })
     
     end_data_mhv <- reactive({  
-      combined_indicators %>%
+      combined %>%
         filter(YEAR == input$range[2],
                STATE == input$state,
                COUNTY == input$county) %>%
@@ -431,12 +439,94 @@ inputPanel(
 
  
  renderTmap({
-        tm_shape(combined_tract_subset()) +
-          tm_polygons(col = "Number of Indicators",
-                      alpha = 0.4)
-      })
- 
-  renderDataTable({
-   indicators()
+   tm_shape(combined_tract_subset()) +
+     tm_polygons(col = "Number of Indicators",
+                 alpha = 0.4)
  })
+ 
+ renderDataTable(
+   datatable(
+     {indicators()},
+     extensions = 'Buttons',
+     options = list(
+       dom = 'lBtip',
+       buttons = c('copy', 'excel', 'csv'),
+       pageLength = 10,
+       lengthMenu = list(c(10,25,50,-1),
+                         c('10', '25', '50', 'All'))
+     ),
+     class = "display"
+   )
+ )
+```
+
+## Gentrification in Context
+
+Gentrification does not occur in an isolated context. Neil Smith's "rent gap" theory suggests neighborhoods in central areas that faced disinvestment may more subject to gentrification. In particular, his theory suggests that the gap between potential and actual rent prices drives gentrification. @smith1987
+
+To place both modern and historic gentrification in context, we can examine present day patterns of gentrification alongside historic redlining practices.
+
+### Redlining
+
+```{r, echo=FALSE}
+
+```
+
+### Health Outcomes
+
+```{r, echo=FALSE}
+
+indicators_holc <- reactive({combined_tract_subset() %>%
+    merge(., end_data(), by = "GEOID")
+})
+
+splitLayout(
+  renderTmap({
+   tm_shape(indicators_holc()) +
+     tm_polygons(col = "Number of Indicators",
+                 alpha = 0.4) +
+      tm_bubbles(size = "Life Expectancy",
+                 alpha = 0.7, 
+                 scale = 0.5,
+                 size.lim = c(55, 100))
+  }),
+  
+  renderTmap({
+    tm_shape(indicators_holc()) +
+     tm_polygons(col = "holc_grade_pop",
+                 palette = "-RdYlGn",
+                lwd = 1.2,
+                alpha = 0.4) +
+      tm_bubbles(size = "Life Expectancy",
+                 alpha = 0.7,
+                 scale = 0.5)
+  })
+)
+
+renderPlot(
+  indicators_holc() %>%
+    ggplot() +
+    geom_point(aes(x = holc_grade_pop, 
+                   y = `Life Expectancy`, 
+                   color = factor(`Number of Indicators`),
+                   size = `Total Pop`),
+               alpha = 0.4) +
+    labs(x = "HOLC Grade (Redlining)",
+         color = "Number of Gentrification Indicators")
+)
+
+
+renderPlot(
+  indicators_holc() %>%
+    ggplot() +
+    geom_point(aes(x = holc_grade_pop, 
+                   y = `MHLTH`, 
+                   color = factor(`Number of Indicators`),
+                   size = `Total Pop`),
+               alpha = 0.4) +
+    labs(x = "HOLC Grade (Redlining)",
+         y = "Number of Gentrification Indicators",
+         y = "Poor Mental Health Prevalence")
+)
+
 ```
