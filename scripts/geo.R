@@ -1,5 +1,8 @@
 library(tigris)
 library(sp)
+library(sf)
+library(ggplot2)
+library(dplyr)
 
 # Downloads from tigris all the census place shapefiles if file doesn't already exist in outputs folder
 if (!file.exists("outputs/geo_places.RDS")) {
@@ -25,12 +28,151 @@ if (!file.exists("outputs/geo_tracts.RDS")) {
 
 
 
-places <- readRDS("outputs/geo_places.RDS") 
+places <- readRDS("outputs/geo_places.RDS")
 tracts <- readRDS("outputs/geo_tracts.RDS")
-holc <- read.csv("raw data/All_Population_Weighted_HOLC_Grades_pt2_Threshold.csv")
+holc <- read.csv("raw data/All_Population_Weighted_HOLC_Grades_pt2_Threshold.csv", colClasses = c("GEOID" = "character"))
+
+
+## Working with RI for short computation times
+
+RI_tracts <- holc_tracts %>%
+  filter(STATEFP == "44")
+
+RI_places <- places %>%
+  filter(STATEFP == "44")
+
+#plot of RI places over tracts
+
+RI_tract_plot = ggplot() +
+  geom_sf(data = RI_tracts) +
+  geom_sf(data = RI_places, fill = "blue")
+
+#intersect plots
+RI_places_tracts <- st_intersection(RI_tracts, RI_places)
+
+test_plot = ggplot() +
+  geom_sf(data = RI_places_tracts)
+
+
+
+## Overall for both
+
+state_lookup <- states() %>%
+  filter(STUSPS %in% state.abb) %>%
+  st_drop_geometry() %>%
+  select(STATEFP, STUSPS)
+
+
+### AVOID RUNNING, TAKES ~6hrs
+places_tracts <- NULL
+for (state_name in state.abb){
+  print(state_name)
+
+  state <- state_lookup[[state_name]]
+
+  state_place <- places %>%
+    filter(STATEFP == state) %>%
+    select(STATEFP, NAME, geometry)
+
+  state_tract <- tracts %>%
+    filter(STATEFP == state) %>%
+    select(GEOID, geometry)
+
+  state_place_tract <- st_intersection(state_tract, state_place)
+
+  places_tracts <- rbind(places_tracts, state_place_tract)
+}
+
+saveRDS(places_tracts, "outputs/geo_tracts_places.RDS")
+
+
+# holc_geo
+
+places_tracts <- readRDS("outputs/geo_tracts_places.RDS")
+
+places_tracts_table <- places_tracts %>%
+  left_join(state_lookup, by = "STATEFP") %>%
+  select(-c(STATEFP)) %>%
+  rename(PLACE = NAME, STUSPS.PLACE = STUSPS)
+
+tract_areas_lookup <- tracts %>%
+  filter(GEOID %in% holc$GEOID) %>%
+  mutate(total_area = as.numeric(st_area(geometry))) %>%
+  st_drop_geometry() %>%
+  select(total_area, GEOID)
+
+holc_geo <- holc %>%
+  rename(CITY = city, STUSPS.CITY = state) %>%
+  left_join(places_tracts_table, by = "GEOID") %>%
+  left_join(tract_areas_lookup, by = "GEOID") %>%
+  mutate(tract_place_area = as.numeric(st_area(geometry))) %>%
+  mutate(area_proportion = round(tract_place_area / total_area, digits = 3)) %>%
+  select(-c(geometry, total_area, tract_place_area))
+
+saveRDS(holc_geo, "outputs/holc_geo.RDS")
+
+
+# holc_place
+
+holc_cities <- holc_geo %>%
+  select(CITY, STUSPS.CITY) %>%
+  distinct()
+
+city_places <- holc_geo %>%
+  filter(!is.na(holc_grade_pop)) %>%
+  select(CITY, STUSPS.CITY, PLACE, STUSPS.PLACE) %>%
+  distinct()
+
+holc_place <- NULL
+
+places <- places %>%
+  left_join(state_lookup, by = "STATEFP")
+
+for (i in 1:nrow(holc_cities)) {
+  holc_city <- holc_cities[i, 1]
+  holc_state <- holc_cities[i, 2]
+
+  holc_places <- city_places %>%
+    filter(CITY == holc_city & STUSPS.CITY == holc_state)
+
+  places_geo <- holc_places %>%
+    left_join(places, by = c("PLACE" = "NAME", "STUSPS.PLACE" = "STUSPS")) %>%
+    select(geometry) %>%
+    st_as_sf()
+
+  city_place_geo <- st_union(places_geo)
+
+  temp_df <- data.frame(holc_city, holc_state, city_place_geo)
+  colnames(temp_df) <- c("CITY", "STUSPS.CITY", "geometry")
+
+  holc_place = rbind(holc_place, st_as_sf(temp_df))
+}
+
+saveRDS(holc_place, "outputs/holc_place.RDS")
+
+
+# test to see how they look together
+
+RI_holc <- holc %>%
+  filter(city == "Providence" & state == "RI")
+
+RI_holc_geo <- tracts %>%
+  filter(GEOID %in% RI_holc$GEOID) %>%
+  pull(geometry)
+
+RI_place_geo <- holc_place %>%
+  filter(CITY == "Providence" & STUSPS.CITY == "RI") %>%
+  pull(geometry)
+
+RI_place_plot <- ggplot() +
+  geom_sf(data = (states() %>% filter(STUSPS == "RI") %>% pull(geometry))) +
+  geom_sf(data = (places %>% filter(STUSPS == "RI") %>% pull(geometry))) +
+  geom_sf(data = RI_place_geo, fill = "red") #+
+  #geom_sf(data = RI_holc_geo, fill = "blue")
+
 
 
 
 # Another task would be create an .Rmd file in the notebooks folder with an descriptive stats on this data.
-# Specifically, I'd be interested in seeing how many places intersect with the original holc boundaries. 
+# Specifically, I'd be interested in seeing how many places intersect with the original holc boundaries.
 # Also interested in seeing how much bigger these combined geographies are compared to the original holc boundaries.
