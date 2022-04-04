@@ -265,8 +265,11 @@ Including an Education Indicator means that only tracts with a population above 
 
 ```{r edu, echo=FALSE}
   inputPanel(
+    sliderInput("eligibility_edu", "Select Eligibility Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1),
+    
     sliderInput("determination_edu", "Select Determination Threshold",
-                min = 0, max = 1, value = 0.66, step = 0.1)
+                min = 0, max = 1, value = 0.5, step = 0.1)
   )
   
   
@@ -290,9 +293,10 @@ Including an Education Indicator means that only tracts with a population above 
       start_data_edu() %>%
         inner_join(end_data_edu(), by = "GEOID") %>% 
         select(Rank_start, Rank_end, GEOID, `Total Pop.y`) %>%
-        mutate(Determination = ifelse(Rank_end > input$determination_edu,
+        mutate(Eligible = ifelse(Rank_start < input$eligibility_edu, "Yes", "No"),
+              Determination = ifelse(Rank_end > input$determination_edu & Eligible == "Yes",
                                       "Yes", "No"),
-               `Gentrification Indicator (Education)` = ifelse(Determination == "Yes", 
+               `Gentrification Indicator (Education)` = ifelse(Eligible == "Yes" & Determination == "Yes", 
                                    "Yes", "No"))
     })
   
@@ -306,7 +310,7 @@ Including an Education Indicator means that only tracts with a population above 
       renderPlot({ 
         labelled_data_edu() %>%
           ggplot(aes(x = Rank_start, y = Rank_end)) +
-          geom_point(aes(color = Determination, alpha = Determination, size = `Total Pop.y`)) +
+          geom_point(aes(color = Eligible, alpha = Determination, size = `Total Pop.y`)) +
           scale_alpha_manual(values = c(0.3, 1))+ 
           theme(aspect.ratio = 1) +
           labs(x = "Tract Percentile Rank in Start Decade",
@@ -392,6 +396,73 @@ Including an Education Indicator means that only tracts with a population above 
     )
 ```
 
+#### Percent in Poverty
+
+```{r, echo=FALSE, collapse=TRUE}
+  inputPanel(
+    sliderInput("eligibility_pov", "Select Eligibility Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1), 
+    
+    sliderInput("determination_pov", "Select Determination Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1)
+  )
+  
+  
+    start_data_pov <- reactive({ 
+      combined %>%
+        filter(YEAR == input$range[1],
+               STATE == input$state,
+               COUNTY == input$county) %>%
+        mutate(Rank_start = percent_rank(-`Percent in Poverty, Total`))
+    })
+    
+    end_data_pov <- reactive({  
+      combined %>%
+        filter(YEAR == input$range[2],
+               STATE == input$state,
+               COUNTY == input$county) %>%
+        mutate(Rank_end = percent_rank(-`Percent in Poverty, Total`))
+    })
+    
+    labelled_data_pov <- reactive({
+      start_data_pov() %>%
+        inner_join(end_data_pov(), by = "GEOID") %>% 
+        select(Rank_start, Rank_end, GEOID, `Total Pop.y`) %>%
+        mutate(Eligible = ifelse(Rank_start < input$eligibility_pov, "Yes", "No"),
+               Determination = ifelse(Rank_end > input$determination_pov & Eligible == "Yes",
+                                      "Yes", "No"),
+               `Gentrification Indicator (Poverty)` = ifelse(Eligible == "Yes" & Determination == "Yes", 
+                                   "Yes", "No"))
+    })
+  
+    tract_subset_pov <- reactive({tracts %>%
+        filter(STATEFP == fips()$STATE_FIP,
+               COUNTYFP == fips()$COUNTY_FIP) %>%
+        merge(.,labelled_data_pov(), by = "GEOID")
+    })
+    
+    splitLayout(
+      renderPlot({ 
+        labelled_data_pov() %>%
+          ggplot(aes(x = Rank_start, y = Rank_end)) +
+          geom_point(aes(color = Eligible, alpha = Determination, size = `Total Pop.y`)) +
+          scale_alpha_manual(values = c(0.3, 1))+ 
+          theme(aspect.ratio = 1) +
+          labs(x = "Tract Percentile Rank in Start Decade",
+               y = "Tract Percentile Rank in End Decade",
+               size = "Population in End Decade")
+        
+      }),
+      
+      renderTmap({
+        
+        tm_shape(tract_subset_pov()) +
+          tm_polygons(col = "Gentrification Indicator (Poverty)",
+                      alpha = 0.4)
+      })
+    )
+```
+
 ## Output and Download
 
 Census Tracts that meet the determination thresholds in Median Household Income, Median Rent, and Education are consequently classified as gentrified.
@@ -405,8 +476,9 @@ inputPanel(
   
   checkboxInput("edu", "Include Education Indicator", value = TRUE),
   
-  checkboxInput("mhv", "Include Median Home Value Indicator", value = FALSE)
+  checkboxInput("mhv", "Include Median Home Value Indicator", value = FALSE),
 
+  checkboxInput("pov", "Include Poverty Indicator", value = FALSE)
 )
 
 
@@ -424,11 +496,12 @@ inputPanel(
       right_join_if_true(labelled_data_mhi(), by = "GEOID", suffix = c("", " MHI"), input$mhi) %>%
       right_join_if_true(labelled_data_rent(), by = "GEOID", suffix = c("", " Rent"), input$rent) %>%
       right_join_if_true(labelled_data_edu(), by = "GEOID", suffix = c("", " Edu"), input$edu) %>%
-      right_join_if_true(labelled_data_mhv(), by = "GEOID", suffix = c("", " MHV"), input$mhv) %>%
-      select(GEOID, starts_with("Gentrification Indicator")) %>%
-      mutate(`Number of Indicators` = rowSums(.[,-1] == "Yes"))
-  })
-  
+      right_join_if_true(labelled_data_mhv(), by = "GEOID", suffix = c("", " MHV"), input$mhv) %>% 
+      right_join_if_true(labelled_data_pov(), by = "GEOID", suffix = c("", " Pov"), input$pov) %>%
+                           select(GEOID, starts_with("Gentrification Indicator")) %>%
+                           mutate(`Number of Indicators` = rowSums(.[,-1] == "Yes"))
+                         })
+    
 
 
  combined_tract_subset <- reactive({tracts %>%
@@ -469,13 +542,6 @@ To place both modern and historic gentrification in context, we can examine pres
 ### Redlining
 
 ```{r, echo=FALSE}
-
-```
-
-### Health Outcomes
-
-```{r, echo=FALSE}
-
 indicators_holc <- reactive({combined_tract_subset() %>%
     merge(., end_data(), by = "GEOID")
 })
@@ -484,49 +550,55 @@ splitLayout(
   renderTmap({
    tm_shape(indicators_holc()) +
      tm_polygons(col = "Number of Indicators",
-                 alpha = 0.4) +
-      tm_bubbles(size = "Life Expectancy",
-                 alpha = 0.7, 
-                 scale = 0.5,
-                 size.lim = c(55, 100))
+                 alpha = 0.4)
   }),
   
   renderTmap({
     tm_shape(indicators_holc()) +
      tm_polygons(col = "holc_grade_pop",
                  palette = "-RdYlGn",
+                 n = 5,
                 lwd = 1.2,
-                alpha = 0.4) +
-      tm_bubbles(size = "Life Expectancy",
-                 alpha = 0.7,
-                 scale = 0.5)
+                alpha = 0.4, 
+                title = "HOLC Grades")
   })
 )
 
-renderPlot(
-  indicators_holc() %>%
-    ggplot() +
-    geom_point(aes(x = holc_grade_pop, 
-                   y = `Life Expectancy`, 
-                   color = factor(`Number of Indicators`),
-                   size = `Total Pop`),
-               alpha = 0.4) +
-    labs(x = "HOLC Grade (Redlining)",
-         color = "Number of Gentrification Indicators")
-)
+
+```
+
+Combining the two maps above, we can look at the relationship between historic HOLC grades and the number of Gentrification indicators.
+
+```{r, echo=FALSE}
+
 
 
 renderPlot(
   indicators_holc() %>%
     ggplot() +
-    geom_point(aes(x = holc_grade_pop, 
-                   y = `MHLTH`, 
-                   color = factor(`Number of Indicators`),
-                   size = `Total Pop`),
-               alpha = 0.4) +
+    geom_jitter(aes(x = holc_grade_pop, 
+                   y = `Number of Indicators`, 
+                   color = holc_grade_pop,
+                   size = `Total Pop`), 
+               alpha = 0.4,
+               height = 0.1) +
+    scale_color_distiller(palette = "RdYlGn", direction = -1) + 
     labs(x = "HOLC Grade (Redlining)",
-         y = "Number of Gentrification Indicators",
-         y = "Poor Mental Health Prevalence")
+         y = "Number of Gentrification Indicators")
 )
+
+# 
+# renderPlot(
+#   indicators_holc() %>%
+#     ggplot() +
+#     geom_point(aes(x = holc_grade_pop, 
+#                    y = `MHLTH`, 
+#                    color = factor(`Number of Indicators`),
+#                    size = `Total Pop`),
+#                alpha = 0.4) +
+#     labs(x = "HOLC Grade (Redlining)",
+#          y = "Number of Gentrification Indicators",
+#          y = "Poor Mental Health Prevalence")
+# )
 
 ```
