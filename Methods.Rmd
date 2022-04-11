@@ -21,13 +21,20 @@ library(sf)
 library(MITREShiny)
 library(DT)
 
-setwd("~/Documents/MIP/gentrification/notebooks")
-tracts <- readRDS("../outputs/geo_tracts.RDS")
+setwd("~/Documents/MIP/gentrification")
+tracts <- readRDS("outputs/geo_tracts.RDS")
 
-combined <- readRDS("../outputs/combined.RDS") %>%
+combined <- readRDS("outputs/combined.RDS") %>%
   mutate(YEAR = ifelse(YEAR == 2019, 2020, YEAR),
          STATE_FIP = substr(GEOID, 1,2),
          COUNTY_FIP = substr(GEOID, 3,5))
+
+holc_colors <- c(
+  "A" = "#759e64", # green
+  "B" = "#75a3b6", # blue
+  "C" = "#c5c473", # yellow
+  "D" = "#c27e8d" # red
+)
 
 fipsnames_cw <- unique(combined[,c("STATE", "COUNTY", "STATE_FIP", "COUNTY_FIP")])
 
@@ -58,15 +65,16 @@ Indicators can be used to define eligibility, determination, or both.
 
 In addition to areal indicators, time period of evaluation and reference geographic region are also important decisions which may impact the quantification of tracts as gentrified.
 
-## Explore
+## Explore Indicators
 
-The three most commonly used indicators used in quantitative definitions of gentrification are:
+The three most commonly used indicators @Bhavsar2020 used in quantitative definitions of gentrification are:
 
 -   Median Household Income
 
 -   Median Rent
 
 -   Education (% with Bachelors Degree)
+
 
 ```{r core-explore, echo=FALSE}
 
@@ -127,7 +135,7 @@ Determination thresholds characterize what change is significant to capture neig
   )
   
   
-    start_data <- reactive({ 
+    start_data_mhi <- reactive({ 
       combined %>%
         filter(YEAR == input$range[1],
                STATE == input$state,
@@ -135,7 +143,7 @@ Determination thresholds characterize what change is significant to capture neig
         mutate(Rank_start = percent_rank(`Median Household Income, Total`))
     })
     
-    end_data <- reactive({  
+    end_data_mhi <- reactive({  
       combined %>%
         filter(YEAR == input$range[2],
                STATE == input$state,
@@ -144,13 +152,13 @@ Determination thresholds characterize what change is significant to capture neig
     })
     
     labelled_data_mhi <- reactive({
-      start_data() %>%
-        inner_join(end_data(), by = "GEOID") %>% 
+      start_data_mhi() %>%
+        inner_join(end_data_mhi(), by = "GEOID") %>% 
         select(Rank_start, Rank_end, GEOID, `Total Pop.y`) %>%
-        mutate(Eligible = ifelse(Rank_start < input$eligibility_mhi, "Yes", "No"),
-               Determination = ifelse(Rank_end > input$determination_mhi & Eligible == "Yes",
+        mutate(`Eligible (MHI)` = ifelse(Rank_start < input$eligibility_mhi, "Yes", "No"),
+               `Determination (MHI)` = ifelse(Rank_end > input$determination_mhi & `Eligible (MHI)` == "Yes",
                                       "Yes", "No"),
-               `Gentrification Indicator (MHI)` = ifelse(Eligible == "Yes" & Determination == "Yes", 
+               `Gentrification Indicator (MHI)` = ifelse(`Eligible (MHI)` == "Yes" & `Determination (MHI)` == "Yes", 
                                    "Yes", "No"))
     })
   
@@ -170,7 +178,7 @@ Determination thresholds characterize what change is significant to capture neig
       renderPlot({
         labelled_data_mhi() %>%
           ggplot(aes(x = Rank_start, y = Rank_end)) +
-          geom_point(aes(color = Eligible, alpha = Determination, size = `Total Pop.y`)) +
+          geom_point(aes(color = `Eligible (MHI)`, alpha = `Determination (MHI)`, size = `Total Pop.y`)) +
           scale_alpha_manual(values = c(0.3, 1))+ 
           theme(aspect.ratio = 1) +
           labs(x = "Tract Percentile Rank in Start Decade",
@@ -190,7 +198,7 @@ Determination thresholds characterize what change is significant to capture neig
     
 ```
 
-### Median Rent Indicator
+### Median Rent 
 
 Including a Median Rent Indicator means that only tracts that started with a median rental value below some X threshold were eligible to gentrify, and if among those tracts, ended up above the top percentile
 
@@ -259,7 +267,7 @@ Including a Median Rent Indicator means that only tracts that started with a med
     )
 ```
 
-### Education Indicator
+### Education 
 
 Including an Education Indicator means that only tracts with a population above a pre-defined percentage threshold of residents with a 4-year College Degree or More can be considered gentrified.
 
@@ -329,7 +337,7 @@ Including an Education Indicator means that only tracts with a population above 
 
 ### Additional Indicators
 
-#### Median Home Value Indicator
+#### Median Home Value 
 
 ```{r mhv, echo=FALSE, collapse=TRUE}
   inputPanel(
@@ -463,6 +471,148 @@ Including an Education Indicator means that only tracts with a population above 
     )
 ```
 
+#### Percent Non-Hispanic White
+
+Find literature references for this...
+eligible = areas that start out with relatively low white pop
+gentrified = areas that end up with higher white pop
+
+```{r, echo=FALSE, collapse=TRUE}
+  inputPanel(
+    sliderInput("eligibility_nhw", "Select Eligibility Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1), 
+    
+    sliderInput("determination_nhw", "Select Determination Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1)
+  )
+  
+  
+    start_data_nhw <- reactive({ 
+      combined %>%
+        filter(YEAR == input$range[1],
+               STATE == input$state,
+               COUNTY == input$county) %>%
+        mutate(Rank_start = percent_rank(`Percent Non-Hispanic White`))
+    })
+    
+    end_data_nhw <- reactive({  
+      combined %>%
+        filter(YEAR == input$range[2],
+               STATE == input$state,
+               COUNTY == input$county) %>%
+        mutate(Rank_end = percent_rank(`Percent Non-Hispanic White`))
+    })
+    
+    labelled_data_nhw <- reactive({
+      start_data_nhw() %>%
+        inner_join(end_data_nhw(), by = "GEOID") %>% 
+        select(Rank_start, Rank_end, GEOID, `Total Pop.y`) %>%
+        mutate(Eligible = ifelse(Rank_start < input$eligibility_pov, "Yes", "No"),
+               Determination = ifelse(Rank_end > input$determination_pov & Eligible == "Yes",
+                                      "Yes", "No"),
+               `Gentrification Indicator (Non-Hispanic White)` = ifelse(Eligible == "Yes" & Determination == "Yes", 
+                                   "Yes", "No"))
+    })
+  
+    tract_subset_nhw <- reactive({tracts %>%
+        filter(STATEFP == fips()$STATE_FIP,
+               COUNTYFP == fips()$COUNTY_FIP) %>%
+        merge(.,labelled_data_nhw(), by = "GEOID")
+    })
+    
+    splitLayout(
+      renderPlot({ 
+        labelled_data_nhw() %>%
+          ggplot(aes(x = Rank_start, y = Rank_end)) +
+          geom_point(aes(color = Eligible, alpha = Determination, size = `Total Pop.y`)) +
+          scale_alpha_manual(values = c(0.3, 1))+ 
+          theme(aspect.ratio = 1) +
+          labs(x = "Tract Percentile Rank in Start Decade",
+               y = "Tract Percentile Rank in End Decade",
+               size = "Population in End Decade")
+        
+      }),
+      
+      renderTmap({
+        
+        tm_shape(tract_subset_nhw()) +
+          tm_polygons(col = "Gentrification Indicator (Non-Hispanic White)",
+                      alpha = 0.4)
+      })
+    )
+```
+
+#### Housing Structure Age
+
+The housing structure age variable is defined as the % of structures in a neighborhood that are more than 30 years old.
+An area that starts out with a large percentage of old housing structures greater than 30 years may indicate areas that are eligible to gentrify.
+
+
+```{r, echo=FALSE, collapse=TRUE}
+  inputPanel(
+    sliderInput("eligibility_hsa", "Select Eligibility Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1), 
+    
+    sliderInput("determination_hsa", "Select Determination Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1)
+  )
+  
+  
+    start_data_hsa <- reactive({ 
+      combined %>%
+        filter(YEAR == input$range[1],
+               STATE == input$state,
+               COUNTY == input$county) %>%
+        mutate(Rank_start = percent_rank(`Percent Structures more than 30 years old`))
+    })
+    
+    end_data_hsa <- reactive({  
+      combined %>%
+        filter(YEAR == input$range[2],
+               STATE == input$state,
+               COUNTY == input$county) %>%
+        mutate(Rank_end = percent_rank(`Percent Structures more than 30 years old`))
+    })
+    
+    labelled_data_hsa <- reactive({
+      start_data_hsa() %>%
+        inner_join(end_data_hsa(), by = "GEOID") %>% 
+        select(Rank_start, Rank_end, GEOID, `Total Pop.y`) %>%
+        mutate(Eligible = ifelse(Rank_start > input$eligibility_hsa, "Yes", "No"),
+               Determination = ifelse(Rank_end < input$determination_hsa & Eligible == "Yes",
+                                      "Yes", "No"),
+               `Gentrification Indicator (Housing Structure Age)` = ifelse(Eligible == "Yes" & Determination == "Yes", 
+                                   "Yes", "No"))
+    })
+  
+    tract_subset_hsa <- reactive({tracts %>%
+        filter(STATEFP == fips()$STATE_FIP,
+               COUNTYFP == fips()$COUNTY_FIP) %>%
+        merge(.,labelled_data_hsa(), by = "GEOID")
+    })
+    
+    splitLayout(
+      renderPlot({ 
+        labelled_data_hsa() %>%
+          ggplot(aes(x = Rank_start, y = Rank_end)) +
+          geom_point(aes(color = Eligible, alpha = Determination, size = `Total Pop.y`)) +
+          scale_alpha_manual(values = c(0.3, 1))+ 
+          theme(aspect.ratio = 1) +
+          labs(x = "Tract Percentile Rank in Start Decade",
+               y = "Tract Percentile Rank in End Decade",
+               size = "Population in End Decade")
+        
+      }),
+      
+      renderTmap({
+        
+        tm_shape(tract_subset_hsa()) +
+          tm_polygons(col = "Gentrification Indicator (Housing Structure Age)",
+                      alpha = 0.4)
+      })
+    )
+```
+
 ## Output and Download
 
 Census Tracts that meet the determination thresholds in Median Household Income, Median Rent, and Education are consequently classified as gentrified.
@@ -478,7 +628,11 @@ inputPanel(
   
   checkboxInput("mhv", "Include Median Home Value Indicator", value = FALSE),
 
-  checkboxInput("pov", "Include Poverty Indicator", value = FALSE)
+  checkboxInput("pov", "Include Poverty Indicator", value = FALSE),
+  
+  checkboxInput("nhw", "Include Non-Hispanic White Indicator", value = FALSE),
+  
+  checkboxInput("hsa", "Include Housing Structure Age", value = FALSE)
 )
 
 
@@ -491,32 +645,51 @@ inputPanel(
     } else {left_data}
   }
   
-  indicators <- reactive({
+  combined_set <- reactive({
     starter %>%
       right_join_if_true(labelled_data_mhi(), by = "GEOID", suffix = c("", " MHI"), input$mhi) %>%
       right_join_if_true(labelled_data_rent(), by = "GEOID", suffix = c("", " Rent"), input$rent) %>%
       right_join_if_true(labelled_data_edu(), by = "GEOID", suffix = c("", " Edu"), input$edu) %>%
       right_join_if_true(labelled_data_mhv(), by = "GEOID", suffix = c("", " MHV"), input$mhv) %>% 
       right_join_if_true(labelled_data_pov(), by = "GEOID", suffix = c("", " Pov"), input$pov) %>%
-                           select(GEOID, starts_with("Gentrification Indicator")) %>%
-                           mutate(`Number of Indicators` = rowSums(.[,-1] == "Yes"))
-                         })
+      right_join_if_true(labelled_data_nhw(), by = "GEOID", suffix = c("", " NHW"), input$nhw) %>%
+      right_join_if_true(labelled_data_hsa(), by = "GEOID", suffix = c("", " HSA"), input$hsa)
+
+  })
     
+    
+  indicators <- reactive({
+    combined_set() %>%
+      select(GEOID, starts_with("Gentrification Indicator")) %>%
+      mutate(`Number of Indicators` = rowSums(.[,-1] == "Yes"))
+  })
+  
+  
+  eligibility_ind <- reactive({
+    combined_set() %>%
+      select(GEOID, starts_with("Eligible")) %>%
+      mutate(`Eligibility Indicators` = rowSums(.[,-1] == "Yes"))
+  })                         
 
-
+    
  combined_tract_subset <- reactive({tracts %>%
         filter(STATEFP == fips()$STATE_FIP,
                COUNTYFP == fips()$COUNTY_FIP) %>%
-        merge(.,indicators(), by = "GEOID")
+        merge(., indicators(), by = "GEOID") %>%
+        merge(., eligibility_ind(), by = "GEOID")
     })
 
  
  renderTmap({
    tm_shape(combined_tract_subset()) +
      tm_polygons(col = "Number of Indicators",
-                 alpha = 0.4)
+                 alpha = 0.4) 
  })
- 
+ renderTmap({
+   tm_shape(combined_tract_subset()) +
+     tm_polygons(col = "Eligibility Indicators",
+                 alpha = 0.4) 
+ })
  renderDataTable(
    datatable(
      {indicators()},
@@ -539,11 +712,25 @@ Gentrification does not occur in an isolated context. Neil Smith's "rent gap" th
 
 To place both modern and historic gentrification in context, we can examine present day patterns of gentrification alongside historic redlining practices.
 
++--------------------------+-------------------+-------------------------+
+| HOLC Grade               | Numeric Code      | Original Map Color Code |
++==========================+===================+=========================+
+| A (Best)                 | 1                 | Green                   |
++--------------------------+-------------------+-------------------------+
+| B (Still Desirable)      | 2                 | Blue                    |
++--------------------------+-------------------+-------------------------+
+| C (Definitely Declining) | 3                 | Yellow                  |
++--------------------------+-------------------+-------------------------+
+| D (Hazardous)            | 4                 | Red                     |
++--------------------------+-------------------+-------------------------+
+
 ### Redlining
+
+Here we have side by side maps examining gentrification indicators and historic redlining maps.
 
 ```{r, echo=FALSE}
 indicators_holc <- reactive({combined_tract_subset() %>%
-    merge(., end_data(), by = "GEOID")
+    merge(., end_data_mhi(), by = "GEOID")
 })
 
 splitLayout(
@@ -556,10 +743,9 @@ splitLayout(
   renderTmap({
     tm_shape(indicators_holc()) +
      tm_polygons(col = "holc_grade_pop",
-                 palette = "-RdYlGn",
-                 n = 5,
+                 palette = holc_colors,
                 lwd = 1.2,
-                alpha = 0.4, 
+                alpha = 0.6, 
                 title = "HOLC Grades")
   })
 )
@@ -567,7 +753,7 @@ splitLayout(
 
 ```
 
-Combining the two maps above, we can look at the relationship between historic HOLC grades and the number of Gentrification indicators.
+Combining the two maps above, we can look at the relationship between historic HOLC grades and the number of Gentrification indicators. Each circle represents a census tract, and the size represents the total population at the ending decade.
 
 ```{r, echo=FALSE}
 
@@ -580,12 +766,43 @@ renderPlot(
                    y = `Number of Indicators`, 
                    color = holc_grade_pop,
                    size = `Total Pop`), 
-               alpha = 0.4,
-               height = 0.1) +
-    scale_color_distiller(palette = "RdYlGn", direction = -1) + 
+               alpha = 0.8,
+               height = 0.1, 
+               show.legend = FALSE) +
+    scale_color_gradientn("HOLC Grade",
+                           colors = holc_colors,
+                           labels = c("A","B","C","D"),
+                           breaks = c(1:4),
+                           limits = c(1,4),
+                           na.value = "transparent") +
     labs(x = "HOLC Grade (Redlining)",
          y = "Number of Gentrification Indicators")
 )
+
+
+
+renderPlot(
+  indicators_holc() %>%
+    ggplot() +
+    geom_jitter(aes(x = holc_grade_pop, 
+                   y = `Eligibility Indicators`, 
+                   color = holc_grade_pop,
+                   size = `Total Pop`), 
+               alpha = 0.8,
+               height = 0.1, 
+               show.legend = FALSE) +
+    scale_color_gradientn("HOLC Grade",
+                           colors = holc_colors,
+                           labels = c("A","B","C","D"),
+                           breaks = c(1:4),
+                           limits = c(1,4),
+                           na.value = "transparent") +
+    labs(x = "HOLC Grade (Redlining)",
+         y = "Number of Gentrification Indicators")
+)
+
+
+
 
 # 
 # renderPlot(
