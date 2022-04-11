@@ -18,7 +18,7 @@ get_acs_vars <- function(year){
       ## https://s4.ad.brown.edu/projects/diversity/Researcher/LTBDDload/Dfiles/codebooks.pdf
       
       `Total Pop` = "B01001_001",
-      `Non-Hispanic White` = "B01001H_001",
+      `Non-Hispanic White` = "B01001A_001",
       `Non-Hispanic Black` = "B01001H_001",
       `Median Household Income, Total`  = "B19013_001",
       `Median Household Income, White` = "B19013A_001",
@@ -141,6 +141,9 @@ process_vars <- function(df,year) {
       
       `Median Household Income, Asian/PI` = `Median Household Income, Asian` + `Median Household Income, PI`,
       
+      `Percent Non-Hispanic White` = `Non-Hispanic White` / `Total Pop`,
+      `Percent Non-Hispanic Black` = `Non-Hispanic Black` / `Total Pop`,
+      
       `Percent Structures more than 30 years old` = (built_tot - built_within5 - built_5to10 - built_10to20 - built_20to30 )/built_tot,
       `Households in neighborhood 10 years or less` = ifelse(year < 2015,
                                                              (moved_o_1 + moved_o_2 + moved_r_1 + moved_r_2)/moved_tot,
@@ -158,12 +161,12 @@ process_vars <- function(df,year) {
 # Add column for year
 acs_2012_processed <- process_vars(acs_2012, 2010) %>%
   mutate(YEAR = 2010)
-acs_2019_processed <- process_vars(acs_2020, 2020) %>%
-  mutate(YEAR = 2019)
+acs_2020_processed <- process_vars(acs_2020, 2020) %>%
+  mutate(YEAR = 2020)
 
 write_csv(acs_2012_processed, "outputs/acs_2012.csv")
 saveRDS(acs_2012_processed, "outputs/acs_2012.RDS")
 
-write_csv(acs_2019_processed, "outputs/acs_2020.csv")
-saveRDS(acs_2019_processed, "outputs/acs_2020.RDS")
+write_csv(acs_2020_processed, "outputs/acs_2020.csv")
+saveRDS(acs_2020_processed, "outputs/acs_2020.RDS")
 
