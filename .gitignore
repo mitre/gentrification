@@ -7,7 +7,6 @@
 *.dbf
 *.csv
 *.xlsx
-*.RDS
 *.png
 *.pptx
 

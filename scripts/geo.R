@@ -57,6 +57,7 @@ test_plot = ggplot() +
 
 ## Overall for both
 
+# Creates table with abbreviated state and corresponding GEOID
 state_lookup <- states() %>%
   filter(STUSPS %in% state.abb) %>%
   st_drop_geometry() %>%
@@ -64,20 +65,26 @@ state_lookup <- states() %>%
 
 
 ### AVOID RUNNING, TAKES ~6hrs
+# Creates dataframe with a tract's GEOID, state, place, and geometry.
+# N.B. tracts can be split by the place borders in which they are contained.
 places_tracts <- NULL
 for (state_name in state.abb){
   print(state_name)
 
+  # Pulls GEOID for state
   state <- state_lookup[[state_name]]
 
+  # Pulls places within state
   state_place <- places %>%
     filter(STATEFP == state) %>%
     select(STATEFP, NAME, geometry)
 
+  # Pulls tracts within state
   state_tract <- tracts %>%
     filter(STATEFP == state) %>%
     select(GEOID, geometry)
 
+  # Pulls the geometries for all tracts cropped by places
   state_place_tract <- st_intersection(state_tract, state_place)
 
   places_tracts <- rbind(places_tracts, state_place_tract)
@@ -90,17 +97,20 @@ saveRDS(places_tracts, "outputs/geo_tracts_places.RDS")
 
 places_tracts <- readRDS("outputs/geo_tracts_places.RDS")
 
+# Tracts in a place with abbreviation instead of GEOID
 places_tracts_table <- places_tracts %>%
   left_join(state_lookup, by = "STATEFP") %>%
   select(-c(STATEFP)) %>%
   rename(PLACE = NAME, STUSPS.PLACE = STUSPS)
 
+# Creates a table with a tracts GEOID and total area (before being split by place borders)
 tract_areas_lookup <- tracts %>%
   filter(GEOID %in% holc$GEOID) %>%
   mutate(total_area = as.numeric(st_area(geometry))) %>%
   st_drop_geometry() %>%
   select(total_area, GEOID)
 
+# Table containing tract GEOID, holc grade, city, place, and proportion of the total tract area the tract in a place takes up
 holc_geo <- holc %>%
   rename(CITY = city, STUSPS.CITY = state) %>%
   left_join(places_tracts_table, by = "GEOID") %>%
@@ -114,34 +124,45 @@ saveRDS(holc_geo, "outputs/holc_geo.RDS")
 
 # holc_place
 
+# Pulls cities and states; 202 total
 holc_cities <- holc_geo %>%
   select(CITY, STUSPS.CITY) %>%
   distinct()
 
+# Pulls a list of cities, with the places in each city
 city_places <- holc_geo %>%
   filter(!is.na(holc_grade_pop)) %>%
   select(CITY, STUSPS.CITY, PLACE, STUSPS.PLACE) %>%
   distinct()
 
+# Creates sf with union of places in a city
+# N.B. Places included must contain at least 1 holc-graded tract
 holc_place <- NULL
 
+# Adds state abbreviation to list of places
 places <- places %>%
   left_join(state_lookup, by = "STATEFP")
 
+# Iterate over all cities
 for (i in 1:nrow(holc_cities)) {
+  # Pulls city and state
   holc_city <- holc_cities[i, 1]
   holc_state <- holc_cities[i, 2]
 
+  # Pulls the places in the given city
   holc_places <- city_places %>%
     filter(CITY == holc_city & STUSPS.CITY == holc_state)
 
+  # Pulls geometry for places in the city
   places_geo <- holc_places %>%
     left_join(places, by = c("PLACE" = "NAME", "STUSPS.PLACE" = "STUSPS")) %>%
     select(geometry) %>%
     st_as_sf()
 
+  # Creates a union of the places geometries
   city_place_geo <- st_union(places_geo)
 
+  # Creates a row for the city with the unified geometry
   temp_df <- data.frame(holc_city, holc_state, city_place_geo)
   colnames(temp_df) <- c("CITY", "STUSPS.CITY", "geometry")
 
