@@ -24,7 +24,7 @@ ltdb <- readRDS("outputs/ltdb_combined.RDS") %>% fix_county_names()
   
 # Load ACS Data
 acs_2012 <- readRDS("outputs/acs_2012.RDS") %>% fix_county_names()
-acs_2019 <- readRDS("outputs/acs_2019.RDS") %>% fix_county_names()
+acs_2020 <- readRDS("outputs/acs_2020.RDS") %>% fix_county_names()
 
 # Load USA Life Expectancy
 leep <- read.csv("raw data/US_A.CSV")
@@ -38,10 +38,7 @@ places <- read.csv("raw data/PLACES 500 Cities/PLACES__Census_Tract_Data__GIS_Fr
 # Make sure that codes are correct form
 places <- places %>%
   mutate(CountyFIPS = str_pad(CountyFIPS,width = 5, "left", "0"),
-         TractFIPS = str_pad(TractFIPS, width = 11, "left", "0")) %>%
-  mutate(CountyName = ifelse(CountyName %in% c("Du Page", "Dupage", "DuPage"), yes = "DuPage", no = CountyName),
-         CountyName = ifelse(CountyName %in% c("De Soto", "Desoto", "DeSoto"), yes = "DeSoto", no = CountyName ),
-         CountyName = ifelse(CountyName %in% c("La Porte", "Laporte", "LaPorte"),yes = "La Porte", no = CountyName)) %>%
+         TractFIPS = str_pad(TractFIPS, width = 11, "left", "0"))%>%
   unique()
 
 
@@ -73,7 +70,7 @@ redlining <- redlining %>%
 
 # Combine Data ------
 
-final <- bind_rows(ltdb, acs_2012, acs_2019)
+final <- bind_rows(ltdb, acs_2012, acs_2020)
 final$GEOID <- as.character(final$GEOID)
 
 final <- final %>% left_join(redlining, by = "GEOID") %>%
