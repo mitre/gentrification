@@ -18,6 +18,8 @@ get_acs_vars <- function(year){
       ## https://s4.ad.brown.edu/projects/diversity/Researcher/LTBDDload/Dfiles/codebooks.pdf
       
       `Total Pop` = "B01001_001",
+      `Non-Hispanic White` = "B01001H_001",
+      `Non-Hispanic Black` = "B01001H_001",
       `Median Household Income, Total`  = "B19013_001",
       `Median Household Income, White` = "B19013A_001",
       `Median Household Income, Black` = "B19013B_001",
@@ -51,11 +53,28 @@ get_acs_vars <- function(year){
       professional = "B15003_024", 
       doctorate = "B15003_025", 
       ag25up = "B15003_001", # denominator for education, population 25+
+
+      built_tot = "B25034_001",  # year structure built
+      built_within5 = "B25034_002",
+      built_5to10 = "B25034_003",
+      built_10to20 = "B25034_004",
+      built_20to30 = "B25034_005",
+
+
+      moved_tot = "B25038_001", # tenure by year householder moved into unit
+      moved_o_1 = "B25038_003", # OWNER
+      moved_o_2 = "B25038_004",
+      moved_o_3 = "B25038_005", #used for 2020 only
+      
+      moved_r_1 = "B25038_010", # RENTER
+      moved_r_2 = "B25038_011",
+      moved_r_3 = "B25038_012",  #used for 2020 only
       
       total_employ = "C18120_001", # Denominator: Total 
       laborforce = "C18120_002", # Number in laborforce
       laborforce_employ = "C18120_003", # Number in laborforce employed
       laborforce_unemploy = "C18120_006" # Number in laborforce unemployed
+      
     )
   )
 }
@@ -68,16 +87,22 @@ if (!file.exists("outputs/acs_2012_raw.RDS")) {
 }
 acs_2012 <- readRDS("outputs/acs_2012_raw.RDS")
 
-if (!file.exists("outputs/acs_2019_raw.RDS")) {
-  acs_2019 <- get_acs_vars(2019)
-  saveRDS(acs_2019, "outputs/acs_2019_raw.RDS")
-}
-acs_2019 <- readRDS("outputs/acs_2019_raw.RDS")
+# if (!file.exists("outputs/acs_2019_raw.RDS")) {
+#   acs_2019 <- get_acs_vars(2019)
+#   saveRDS(acs_2019, "outputs/acs_2019_raw.RDS")
+# }
+# acs_2019 <- readRDS("outputs/acs_2019_raw.RDS")
 
+
+if (!file.exists("outputs/acs_2020_raw.RDS")) {
+  acs_2020 <- get_acs_vars(2020)
+  saveRDS(acs_2019, "outputs/acs_2020_raw.RDS")
+}
+acs_2020 <- readRDS("outputs/acs_2020_raw.RDS")
 
 # Calculate Measures -----
 
-process_vars <- function(df) {
+process_vars <- function(df,year) {
   
   # Removing the E-suffix from the Estimates to rename columns
   rename_cols <- c(names(df)[1:2],
@@ -114,7 +139,12 @@ process_vars <- function(df) {
       `Percent Unemployed` = laborforce_unemploy / laborforce * 100,
       `Percent Labor Force Participation` = laborforce / total_employ * 100,
       
-      `Median Household Income, Asian/PI` = `Median Household Income, Asian` + `Median Household Income, PI`
+      `Median Household Income, Asian/PI` = `Median Household Income, Asian` + `Median Household Income, PI`,
+      
+      `Percent Structures more than 30 years old` = (built_tot - built_within5 - built_5to10 - built_10to20 - built_20to30 )/built_tot,
+      `Households in neighborhood 10 years or less` = ifelse(year < 2015,
+                                                             (moved_o_1 + moved_o_2 + moved_r_1 + moved_r_2)/moved_tot,
+                                                             (moved_o_1 + moved_o_2 + moved_o_3 + moved_r_1 + moved_r_2 + moved_r_3)/moved_tot)
     ) %>%
     
     # Removing original variables
@@ -126,14 +156,14 @@ process_vars <- function(df) {
   
 }
 # Add column for year
-acs_2012_processed <- process_vars(acs_2012) %>%
+acs_2012_processed <- process_vars(acs_2012, 2010) %>%
   mutate(YEAR = 2010)
-acs_2019_processed <- process_vars(acs_2019) %>%
+acs_2019_processed <- process_vars(acs_2020, 2020) %>%
   mutate(YEAR = 2019)
 
 write_csv(acs_2012_processed, "outputs/acs_2012.csv")
 saveRDS(acs_2012_processed, "outputs/acs_2012.RDS")
 
-write_csv(acs_2019_processed, "outputs/acs_2019.csv")
-saveRDS(acs_2019_processed, "outputs/acs_2019.RDS")
+write_csv(acs_2019_processed, "outputs/acs_2020.csv")
+saveRDS(acs_2019_processed, "outputs/acs_2020.RDS")
 
