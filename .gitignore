@@ -9,7 +9,8 @@
 *.xlsx
 *.png
 *.pptx
-
+*.RDS
+*.pdf
 *.nb.html
 
 .DS_Store
