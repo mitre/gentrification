@@ -61,11 +61,10 @@ redlining <-
   read.csv("raw data/All_Population_Weighted_HOLC_Grades_pt2_Threshold.csv")
 redlining$GEOID <- str_pad(redlining$GEOID, width = 11, side = "left", pad = "0")
 redlining$GEOID <- as.character(redlining$GEOID)
-redlining$state <- NULL
-redlining$city <- NULL
+redlining$state <- redlining$city <- NULL
 redlining <- redlining %>% 
   group_by(GEOID) %>%
-  summarize(holc_grade_pop = mean(holc_grade_pop, na.rm = T)) 
+  summarize(`HOLC Grade` = mean(holc_grade_pop, na.rm = T)) 
 
 
 # Combine Data ------

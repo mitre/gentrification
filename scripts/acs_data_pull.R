@@ -96,7 +96,7 @@ acs_2012 <- readRDS("outputs/acs_2012_raw.RDS")
 
 if (!file.exists("outputs/acs_2020_raw.RDS")) {
   acs_2020 <- get_acs_vars(2020)
-  saveRDS(acs_2019, "outputs/acs_2020_raw.RDS")
+  saveRDS(acs_2020, "outputs/acs_2020_raw.RDS")
 }
 acs_2020 <- readRDS("outputs/acs_2020_raw.RDS")
 
@@ -145,18 +145,17 @@ process_vars <- function(df,year) {
       `Percent Non-Hispanic Black` = `Non-Hispanic Black` / `Total Pop`,
       
       `Percent Structures more than 30 years old` = (built_tot - built_within5 - built_5to10 - built_10to20 - built_20to30 )/built_tot,
-      `Households in neighborhood 10 years or less` = ifelse(year < 2015,
-                                                             (moved_o_1 + moved_o_2 + moved_r_1 + moved_r_2)/moved_tot,
-                                                             (moved_o_1 + moved_o_2 + moved_o_3 + moved_r_1 + moved_r_2 + moved_r_3)/moved_tot)
+      `Households in neighborhood 10 years or less` = case_when(year < 2015 ~ (moved_o_1 + moved_o_2 + moved_r_1 + moved_r_2)/moved_tot,
+                                                                year >= 201 ~ (moved_o_1 + moved_o_2 + moved_o_3 + moved_r_1 + moved_r_2 + moved_r_3)/moved_tot)
     ) %>%
     
     # Removing original variables
     select(-c(dpov:laborforce_unemploy, 
               `Median Household Income, Asian`, 
-              `Median Household Income, PI`)) 
+              `Median Household Income, PI`,
+              `Non-Hispanic White`,
+              `Non-Hispanic Black`)) 
 
-
-  
 }
 # Add column for year
 acs_2012_processed <- process_vars(acs_2012, 2010) %>%
@@ -164,9 +163,9 @@ acs_2012_processed <- process_vars(acs_2012, 2010) %>%
 acs_2020_processed <- process_vars(acs_2020, 2020) %>%
   mutate(YEAR = 2020)
 
-write_csv(acs_2012_processed, "outputs/acs_2012.csv")
+#write_csv(acs_2012_processed, "outputs/acs_2012.csv")
 saveRDS(acs_2012_processed, "outputs/acs_2012.RDS")
 
-write_csv(acs_2020_processed, "outputs/acs_2020.csv")
+#write_csv(acs_2020_processed, "outputs/acs_2020.csv")
 saveRDS(acs_2020_processed, "outputs/acs_2020.RDS")
 
