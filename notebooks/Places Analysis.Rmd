@@ -1,0 +1,164 @@
+---
+title: "Places Analysis"
+author: "AJ Liberatore"
+date: "4/12/2022"
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tigris)
+library(sp)
+library(sf)
+library(ggplot2)
+library(dplyr)
+library(shiny)
+theme_set(theme_minimal())
+options(scipen = 999)
+```
+
+# Analysis of Places Geography for HOLC Graded Cities
+
+Objectives:
+
+- Find out how many places intersect with original HOLC boundaries
+
+- How much bigger are the combined places than the original HOLC boundaries?
+
+- Add tract lines within the places for plots (lots of plots)
+
+- See if setting cb to TRUE when pulling places makes changes
+
+## Loading necessary data
+```{r}
+places <- readRDS("../outputs/geo_places.RDS")
+tracts <- readRDS("../outputs/geo_tracts.RDS")
+holc <- read.csv("../raw data/All_Population_Weighted_HOLC_Grades_pt2_Threshold.csv", colClasses = c("GEOID" = "character"))
+places_tracts <- readRDS("../outputs/geo_tracts_places.RDS")
+holc_geo <- readRDS("../outputs/holc_geo.RDS")
+holc_place <- readRDS("../outputs/holc_place.RDS")
+```
+
+## How much bigger are combined places?
+```{r}
+place_areas <- holc_place %>%
+  dplyr::mutate(place_area = as.numeric(sf::st_area(geometry))) %>%
+  st_drop_geometry()
+
+tract_areas <- tracts %>%
+  dplyr::filter(GEOID %in% holc$GEOID) %>%
+  dplyr::mutate(tract_area = as.numeric(sf::st_area(geometry))) %>%
+  dplyr::select(GEOID, tract_area) %>%
+  st_drop_geometry()
+
+holc_areas <- holc %>%
+  dplyr::left_join(tract_areas, by = "GEOID") %>%
+  dplyr::group_by(city, state) %>%
+  dplyr::summarise(tract_area = sum(tract_area, na.rm = TRUE))
+holc_areas <- as.data.frame(holc_areas)
+
+area_table <- holc_areas %>%
+  dplyr::left_join(place_areas, by = c("city" = "CITY", "state" = "STUSPS.CITY")) %>%
+  dplyr::mutate(place_tract_ratio = tract_area / place_area)
+```
+
+Plots to make sense of this. Include log transform as well.
+```{r}
+hist(area_table$place_tract_ratio)
+```
+
+Plot holc graded tracts vs. areas
+```{r}
+plot(log(area_table$place_area)~log(area_table$tract_area))
+abline(lm(log(area_table$place_area)~log(area_table$tract_area)))
+```
+
+Area of tracts.
+```{r}
+
+```
+
+Some maps that will eventually become part of an app. Use leaflet.
+For now, combined places are red while holc boundaries are blue.
+```{r, results='hide'}
+selected_state = c("RI", "44")
+
+state_holc <- holc %>%
+  filter(city == "Providence", state == selected_state[1])
+  #filter(city == "Providence" & state == "RI")
+
+state_holc_geo <- tracts %>%
+  filter(GEOID %in% state_holc$GEOID) %>%
+  pull(geometry)
+
+state_place_geo <- holc_place %>%
+  filter(CITY == "Providence", STUSPS.CITY == selected_state[1]) %>%
+  #filter(CITY == "Providence" & STUSPS.CITY == "RI") %>%
+  pull(geometry)
+
+state_place_plot <- ggplot() +
+  geom_sf(data = (states() %>% filter(STUSPS == selected_state[1]) %>% pull(geometry))) +
+  geom_sf(data = (places %>% filter(STATEFP == selected_state[2]) %>% pull(geometry))) +
+  geom_sf(data = state_place_geo, fill = "red", alpha = 0.5) +
+  geom_sf(data = state_holc_geo, fill = "blue", alpha = 0.5)
+
+plot(state_place_plot)
+```
+
+Shiny version.
+```{r, echo = FALSE}
+city_table <- holc %>%
+  dplyr::select(city, state) %>%
+  dplyr::distinct() %>%
+  dplyr::mutate(city_state = paste0(city, ", ", state))
+
+inputPanel(
+  shiny::selectInput("city", label = "City Name",
+                     choices = city_table$city_state)
+)
+
+selected_city <- reactive({
+  city_table %>%
+    dplyr::filter(city_state == input$city) %>%
+    dplyr::pull(city)
+})
+
+selected_state <- reactive({
+  city_table %>%
+    dplyr::filter(city_state == input$city) %>%
+    dplyr::pull(state)
+})
+
+state_holc <- reactive({
+  holc %>%
+    dplyr::filter(city == selected_city(), state == selected_state())
+})
+
+state_geo <- reactive({
+  tigris::states() %>%
+    dplyr::filter(STUSPS == selected_state()) %>%
+    dplyr::pull(geometry)
+})
+
+state_holc_geo <- reactive({
+  tracts %>%
+    dplyr::filter(GEOID %in% state_holc()$GEOID) %>%
+    dplyr::pull(geometry)
+})
+
+state_place_geo <- reactive({
+  holc_place %>%
+    dplyr::filter(CITY == selected_city(), STUSPS.CITY == selected_state()) %>%
+    dplyr::pull(geometry)
+})
+
+renderPlot({
+  ggplot() +
+  geom_sf(data = state_geo()) +
+  #geom_sf(data = (places %>% filter(STATEFP == selected_state[2]) %>% pull(geometry))) +
+  geom_sf(data = state_place_geo(), fill = "red", alpha = 0.5) +
+  geom_sf(data = state_holc_geo(), fill = "blue", alpha = 0.5)
+})
+```
