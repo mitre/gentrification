@@ -76,7 +76,18 @@ final <- final %>% left_join(redlining, by = "GEOID") %>%
   left_join(places, by = c("GEOID" = "TractFIPS")) %>%
   left_join(leep, by = c("GEOID" = "TractID"))
 
-
+final <- final %>% 
+  select(YEAR, STATE, COUNTY, GEOID, `Total Pop`, 
+         `Median Household Income, Total`,
+         `Percent Non-Hispanic White`, `Percent in Poverty, Total`,
+         `Percent Owner-Occupied Units`, `Percent Vacant Units`,
+         `Median Rent`, `Median Home Value`, 
+         `Percent Structures more than 30 years old`, 
+         `Percent with 4-year College Degree or More`,
+         `Households in neighborhood 10 years or less`,
+         `HOLC Grade`, prev_cols_names) %>%
+  rename("Median Household Income" = "Median Household Income, Total",
+         "Percent in Poverty" = "Percent in Poverty, Total")
 
 saveRDS(final, "outputs/combined.RDS")
 

@@ -141,12 +141,12 @@ process_vars <- function(df,year) {
       
       `Median Household Income, Asian/PI` = `Median Household Income, Asian` + `Median Household Income, PI`,
       
-      `Percent Non-Hispanic White` = `Non-Hispanic White` / `Total Pop`,
-      `Percent Non-Hispanic Black` = `Non-Hispanic Black` / `Total Pop`,
+      `Percent Non-Hispanic White` = `Non-Hispanic White` / `Total Pop` * 100,
+      `Percent Non-Hispanic Black` = `Non-Hispanic Black` / `Total Pop` * 100,
       
-      `Percent Structures more than 30 years old` = (built_tot - built_within5 - built_5to10 - built_10to20 - built_20to30 )/built_tot,
-      `Households in neighborhood 10 years or less` = case_when(year < 2015 ~ (moved_o_1 + moved_o_2 + moved_r_1 + moved_r_2)/moved_tot,
-                                                                year >= 201 ~ (moved_o_1 + moved_o_2 + moved_o_3 + moved_r_1 + moved_r_2 + moved_r_3)/moved_tot)
+      `Percent Structures more than 30 years old` = (built_tot - built_within5 - built_5to10 - built_10to20 - built_20to30 )/built_tot * 100,
+      `Households in neighborhood 10 years or less` = case_when(year < 2015 ~ (moved_o_1 + moved_o_2 + moved_r_1 + moved_r_2)/moved_tot * 100,
+                                                                year >= 201 ~ (moved_o_1 + moved_o_2 + moved_o_3 + moved_r_1 + moved_r_2 + moved_r_3)/moved_tot * 100)
     ) %>%
     
     # Removing original variables
