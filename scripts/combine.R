@@ -1,7 +1,6 @@
 # Creating Dataset of Features for 2010 CTs
 library(tidyverse)
 
-
 fix_county_names <- function(data){
   data %>%
     mutate(COUNTY = ifelse(COUNTY %in% c("Du Page", "Dupage", "DuPage"), yes = "DuPage", no = COUNTY),
@@ -17,7 +16,7 @@ fix_county_names <- function(data){
     unique()
 }
 
-# Read in Data -----
+# Process Indicators Data --------
 
 # Load LTDB Data
 ltdb <- readRDS("outputs/ltdb_combined.RDS") %>% fix_county_names()
@@ -26,69 +25,65 @@ ltdb <- readRDS("outputs/ltdb_combined.RDS") %>% fix_county_names()
 acs_2012 <- readRDS("outputs/acs_2012.RDS") %>% fix_county_names()
 acs_2020 <- readRDS("outputs/acs_2020.RDS") %>% fix_county_names()
 
+
+# Combine and Output
+indicators <- bind_rows(ltdb, acs_2012, acs_2020) %>% 
+  mutate(`Percent Above Poverty` = 100 - `Percent in Poverty, Total`,
+         GEOID = as.character(GEOID)) %>%
+  select(YEAR, STATE, COUNTY, GEOID, `Total Pop`, 
+         `Median Household Income, Total`,
+         `Percent Non-Hispanic White`, `Percent Above Poverty`,
+         `Percent Owner-Occupied Units`, `Percent Vacant Units`,
+         `Median Rent`, `Median Home Value`, 
+         `Percent Structures more than 30 years old`, 
+         `Percent with 4-year College Degree or More`,
+         `Households in neighborhood 10 years or less`) %>%
+  rename("Median Household Income" = "Median Household Income, Total")
+
+saveRDS(indicators, "outputs/indicators.RDS")
+
+
+
+# Process Outcomes Data --------
+
 # Load USA Life Expectancy
-leep <- read.csv("raw data/US_A.CSV")
-leep <- leep[,c(1,5,6)]
-colnames(leep) <- c("TractID", "Life Expectancy", "SE Life Expectancy")
-leep$TractID <- as.character(leep$TractID)
+leep <- read.csv("raw data/US_A.CSV", colClasses = c("Tract.ID" = "character"))[,c(1,5,6)] 
+colnames(leep) <- c("TractID", "Life Expectancy", "Life Expectancy SE")
 
-## Load & Process PLACES -----
-places <- read.csv("raw data/PLACES 500 Cities/PLACES__Census_Tract_Data__GIS_Friendly_Format___2020_release.csv")
-
-# Make sure that codes are correct form
-places <- places %>%
+# Load & Process PLACES 
+places <- read.csv("raw data/PLACES 500 Cities/PLACES__Census_Tract_Data__GIS_Friendly_Format___2020_release.csv") %>%
   mutate(CountyFIPS = str_pad(CountyFIPS,width = 5, "left", "0"),
          TractFIPS = str_pad(TractFIPS, width = 11, "left", "0"))%>%
   unique()
-
 
 prev_cols <- colnames(places[str_detect(colnames(places), "CrudePrev")])
 prev_cols_names <- str_remove(prev_cols, pattern = "_CrudePrev")
 
 ci_cols <- colnames(places)[str_detect(colnames(places), "95CI")] 
 
-# Remove unnecessary columns
 places <- places %>%
   select(-c(1:4, Geolocation))
 places[colnames(places) %in% ci_cols] <- NULL
 
-# Rename column names
 names(places)[names(places) %in% prev_cols] <- prev_cols_names
 
 
-## Load & Process Redlining Data -----
+# Load & Process Redlining Data 
 redlining <-
-  read.csv("raw data/All_Population_Weighted_HOLC_Grades_pt2_Threshold.csv")
-redlining$GEOID <- str_pad(redlining$GEOID, width = 11, side = "left", pad = "0")
-redlining$GEOID <- as.character(redlining$GEOID)
-redlining$state <- redlining$city <- NULL
-redlining <- redlining %>% 
+  read.csv("raw data/All_Population_Weighted_HOLC_Grades_pt2_Threshold.csv") %>%
+  mutate(GEOID = str_pad(GEOID, width = 11, side = "left", pad = "0"),
+         GEOID = as.character(GEOID)) %>%
+  select(-state, -city) %>%
   group_by(GEOID) %>%
-  summarize(`HOLC Grade` = mean(holc_grade_pop, na.rm = T)) 
+  summarize(`HOLC Grade` = mean(holc_grade_pop, na.rm = T))
 
 
-# Combine Data ------
+# Combine and Output
 
-final <- bind_rows(ltdb, acs_2012, acs_2020)
-final$GEOID <- as.character(final$GEOID)
+outcomes <- redlining %>%
+  full_join(leep, by = c("GEOID" = "TractID")) %>%
+  left_join(places, by = c("GEOID" = "TractFIPS"))
 
-final <- final %>% left_join(redlining, by = "GEOID") %>%
-  left_join(places, by = c("GEOID" = "TractFIPS")) %>%
-  left_join(leep, by = c("GEOID" = "TractID"))
-
-final <- final %>% 
-  select(YEAR, STATE, COUNTY, GEOID, `Total Pop`, 
-         `Median Household Income, Total`,
-         `Percent Non-Hispanic White`, `Percent in Poverty, Total`,
-         `Percent Owner-Occupied Units`, `Percent Vacant Units`,
-         `Median Rent`, `Median Home Value`, 
-         `Percent Structures more than 30 years old`, 
-         `Percent with 4-year College Degree or More`,
-         `Households in neighborhood 10 years or less`,
-         `HOLC Grade`, prev_cols_names) %>%
-  rename("Median Household Income" = "Median Household Income, Total",
-         "Percent in Poverty" = "Percent in Poverty, Total")
-
-saveRDS(final, "outputs/combined.RDS")
+saveRDS(outcomes, "outputs/outcomes.RDS")
 
 
