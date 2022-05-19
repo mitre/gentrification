@@ -21,13 +21,15 @@ library(tigris)
 library(sf)
 library(MITREShiny)
 library(DT)
+library(plotly)
 
 setwd("~/Documents/MIP/gentrification")
 tracts <- readRDS("outputs/geo_tracts.RDS")
 
-combined <- readRDS("outputs/combined.RDS") %>%
+indicators <- readRDS("outputs/indicators.RDS") %>%
   mutate(STATE_FIP = substr(GEOID, 1,2),
          COUNTY_FIP = substr(GEOID, 3,5)) 
+outcomes <- readRDS("outputs/outcomes.RDS")
 
 holc_colors <- c(
   "A" = "#759e64", # green
@@ -39,9 +41,11 @@ holc_colors <- c(
 gent_colors <- c(
   "#D0E1D4",  "#0C6291", "#C05746" 
 )
-fipsnames_cw <- unique(combined[,c("STATE", "COUNTY", "STATE_FIP", "COUNTY_FIP")])
+fipsnames_cw <- unique(indicators[,c("STATE", "COUNTY", "STATE_FIP", "COUNTY_FIP")])
 
-theme_set(theme_minimal())
+theme_set(theme_minimal()) +
+  theme(plot.title = element_text(hjust=0.5),
+        plot.subtitle = element_text(hjust = 0.5))
 ```
 
 # Introduction
@@ -65,13 +69,13 @@ In addition to areal indicators, time period of evaluation and reference geograp
 
 ```{r data_prep, echo=FALSE, message=FALSE,}
 # Additional Data prep to reduce processing later on
-data <- combined %>%
+data <- indicators %>%
     select(GEOID, YEAR, STATE, COUNTY, `Total Pop`,
            `Median Rent`, 
            `Median Household Income`,
            `Percent with 4-year College Degree or More`, 
            `Median Home Value`,
-           `Percent in Poverty`,
+           `Percent Above Poverty`,
            `Percent Non-Hispanic White`,
            `Percent Structures more than 30 years old`,
            `Households in neighborhood 10 years or less`) %>%
@@ -87,7 +91,8 @@ plot_measure_scatter <- function(data){
       geom_point(aes(size = `Total Pop End`, color = Label), alpha = 0.7) +
       scale_color_manual(values = gent_colors) +
       theme(aspect.ratio = 1,
-            legend.position = "bottom")
+            legend.position = "bottom") +
+    labs(title = paste(input$measure))
 }
 
 add_gentrification_label <- function(data, input_eligibility, input_determination){
@@ -171,11 +176,11 @@ splitLayout(
                      alpha = 0.4, position = "dodge") + 
       geom_density(aes(color = as.factor(YEAR)), show.legend = FALSE) +
       labs(fill = "Year",
-           y = "# of Tracts") +
+           y = "# of Tracts",
+           title = paste(input$measure)) +
       theme(legend.position = "bottom",
-            aspect.ratio = 1) +
-      facet_wrap(~Measure)
-    
+            aspect.ratio = 1) 
+
   }),
   
   renderPlot({
@@ -186,7 +191,8 @@ splitLayout(
                  alpha = 0.3) +
       geom_abline(slope = 1, intercept = 0, lty = "dotted", color = "gray") +
       theme(aspect.ratio = 1,
-            legend.position = "bottom")
+            legend.position = "bottom") +
+      labs(title = paste(input$measure))
   })
 )
 
@@ -233,7 +239,7 @@ tract_mhi <- reactive({tracts %>%
 splitLayout(
   renderPlot({
     mhi() %>%
-      plot_measure_scatter()
+      plot_measure_scatter() 
   }),
   
    renderTmap({
@@ -475,7 +481,7 @@ ten <- reactive({
 
 tract_ten <- reactive({tracts %>%
         filter(STATEFP == fips()$STATE_FIP,
-               COUNTYFP == fips()$COUNTY_FIP) %>%i 
+               COUNTYFP == fips()$COUNTY_FIP) %>%
         merge(.,ten(), by = "GEOID")
       })
 
@@ -495,7 +501,7 @@ splitLayout(
 )
 ```
 
-## Percent Below FPL
+## Percent Above FPL
 
 ```{r fpl, echo=FALSE}
 inputPanel(
@@ -509,7 +515,7 @@ inputPanel(
 # Generate tenure data set
 pov <- reactive({
   start_end() %>%
-    filter(Measure == "Percent in Poverty") %>%
+    filter(Measure == "Percent Above Poverty") %>%
     add_gentrification_label(input_eligibility = input$eligibility_pov,
                              input_determination = input$determination_pov)
 })
@@ -539,6 +545,7 @@ splitLayout(
 
 # Select Indicators
 
+Selection of indicators should be guided by local expertise in identifying the relevant indicators of gentrification within that community.
 ```{r, echo = FALSE}
 
 
@@ -574,7 +581,7 @@ start_end_labelled <- reactive({
     add_gentrification_label_full("Median Home Value",
                                   input$eligibility_mhv, 
                                   input$determination_mhv) %>%
-    add_gentrification_label_full("Percent in Poverty",
+    add_gentrification_label_full("Percent Above Poverty",
                                   input$eligibility_pov, 
                                   input$determination_pov) %>%
     add_gentrification_label_full("Percent Non-Hispanic White",
@@ -593,54 +600,161 @@ start_end_labelled <- reactive({
 
 measures <- reactive({
   start_end_labelled() %>%
-    mutate(`Positive Indicator` = rowSums(. == "Positive Indicator"),
-           `Not Eligible` = rowSums(. == "Not Eligible"),
-           `Still Susceptible` = rowSums(. == "Still Susceptible")) 
+    mutate(`Positive Indicator` = as.integer(rowSums(. == "Positive Indicator")),
+           `Not Eligible` = as.integer(rowSums(. == "Not Eligible")),
+           `Still Susceptible` = as.integer(rowSums(. == "Still Susceptible")))
 })
-## Add three way color 
-  
-# renderDataTable(
-#   start_end_labelled() 
-# )
+
+
+tract_measures <- reactive({tracts %>%
+        filter(STATEFP == fips()$STATE_FIP,
+               COUNTYFP == fips()$COUNTY_FIP) %>%
+        merge(.,measures(), by = "GEOID")
+      })
+
+renderTmap({
+  tm_shape(tract_measures()) +
+    tm_polygons(col = "Still Susceptible",
+                alpha = 0.5,
+                palette = c("#FFFFFF", gent_colors[3]),
+                legend.format = list(digits = 0)
+                ) +
+    tm_shape(tract_measures()) +
+    tm_polygons(col = "Positive Indicator",
+                alpha = 0.5,
+                palette = c("#FFFFFF", gent_colors[2]),
+                legend.format = list(digits = 0),
+                popup.vars = c("Positive Indicator",
+                               "Still Susceptible",
+                               "Not Eligible"),
+                popup.format = list(digits = 0))
+      }) 
 
 renderDataTable(
-  measures()
+  datatable({
+    measures()
+  },
+  extensions = 'Buttons',
+     options = list(
+       dom = 'lBtip',
+       buttons = c('copy', 'excel', 'csv'),
+       pageLength = 10,
+       lengthMenu = list(c(10,25,50,-1),
+                         c('10', '25', '50', 'All'))
+     ),
+     class = "display"
+  )
 )
 # 
-# tract_pov <- reactive({tracts %>%
-#         filter(STATEFP == fips()$STATE_FIP,
-#                COUNTYFP == fips()$COUNTY_FIP) %>%
-#         merge(.,pov(), by = "GEOID")
-#       })
-# 
-# renderTmap({
-#         tm_shape(tract_pov()) +
-#           tm_polygons(col = "Label", 
-#                       palette = gent_colors,
-#                       alpha = 0.4)
-#       })
+
 
 ```
+
+# Compare Results {}
+
+
+```{r, echo = FALSE}
+outcomes <- outcomes %>%
+  select(GEOID, `Life Expectancy`,
+         BINGE, BPHIGH, CANCER, CASTHMA, DIABETES, HIGHCHOL, MHLTH, PHLTH, SLEEP) %>%
+  unique()
+
+colnames(outcomes) <- c("GEOID",
+                        "Life Expectancy",
+                        "Binge Drinking",
+                        "High Blood Pressure",
+                        "Cancer",
+                        "Asthma",
+                        "Diabetes",
+                        "High Cholesterol",
+                        "Poor Mental Health",
+                        "Poor Physical Health",
+                        "Insufficient Sleep")
+
+outcomes <- outcomes %>%
+  gather(key = "Health Outcomes",
+         value = "Prevalence",
+         -GEOID, na.rm = TRUE)
+
+
+inputPanel(
+    selectInput("brfss", 
+                label = "Choose a Health Outcome to Explore:",
+                choices = unique(outcomes$`Health Outcomes`),
+                selected = "Binge Drinking"
+                )
+  )
+
+outcomes_measures <- reactive({
+  measures() %>%
+    left_join(outcomes, by = "GEOID") %>%
+    filter(`Health Outcomes` == input$brfss)
+})
+
+tracts_outcomes_measures <- reactive({
+  tracts %>%
+        filter(STATEFP == fips()$STATE_FIP,
+               COUNTYFP == fips()$COUNTY_FIP) %>%
+        merge(.,outcomes_measures(), by = "GEOID")
+
+})
+
+renderTmap({
+
+  tm_shape(tract_measures()) +
+    tm_polygons(col = "Still Susceptible",
+                alpha = 0.5,
+                palette = c("#FFFFFF", gent_colors[3]),
+                legend.format = list(digits = 0)
+                ) +
+    tm_shape(tract_measures()) +
+    tm_polygons(col = "Positive Indicator",
+                alpha = 0.5,
+                palette = c("#FFFFFF", gent_colors[2]),
+                legend.format = list(digits = 0),
+                popup.vars = c("Positive Indicator",
+                               "Still Susceptible",
+                               "Not Eligible"),
+                popup.format = list(digits = 0)) +
+    tm_shape(tracts_outcomes_measures()) +
+    tm_bubbles(col = "Prevalence",
+               size = "Prevalence",
+               palette = "Greens",
+               alpha = 0.5,
+               scale = 0.5)
+})
+
+splitLayout(
+  renderPlot({
+  outcomes_measures() %>%
+    ggplot(aes(y = Prevalence, 
+               x = factor(`Positive Indicator`))) +
+    geom_violin(aes(fill = factor(`Positive Indicator`)),
+                alpha = 0.6, 
+                color = "white",
+                show.legend = FALSE) +
+      labs(x = "Number of Positive Indicators of Gentrification",
+           y = paste("Prevalence"),
+           title = paste(input$brfss))
+    }),
+  
+  renderPlot({
+    outcomes_measures() %>%
+      ggplot(aes(y = Prevalence,
+                 x = factor(`Still Susceptible`))) +
+      geom_violin(aes(fill = factor(`Still Susceptible`)),
+                  alpha = 0.6, 
+                  color = "white",
+                  show.legend = FALSE) +
+      labs(x = "Number of Still Eligible Indicators of Gentrification",
+           y = paste("Prevalence"),
+           title = paste(input$brfss))
+  })
+)
+
+```
+
 https://stackoverflow.com/questions/40357115/column-with-color-values-in-tmap
 https://spatialanalysis.github.io/lab_tutorials/4_R_Mapping.html
-```{r color-define, echo = FALSE}
 
-# test <- tibble(R = c(0, 1, 1, 2, 3, 0, 0, 2),
-#                B = c(1, 0, 1, 0, 0, 0, 3, 1),
-#                W = c(2, 2, 1, 1, 0, 3, 0, 0)) %>%
-#   mutate(total = R + B + W) %>%
-#   mutate(ramp = list(colorRampPalette(c("#0C6291", "#C05746"))(5)))
-#   mutate(color = case_when(W == 3 ~ gent_colors[1],
-#                            R == 3 ~ gent_colors[3],
-#                            B == 3 ~ gent_colors[2],
-#                            W == 0 & B == 1 ~ ramp[1],
-#                            W == 0 & B == 2 ~ ramp[2]
-#                            ))
-#   
-# 
-# 
-# gent_ramp <- colorRampPalette(c(gent_colors[2:3]))(3)
-# show_col(gent_colors)
-# colorRampPalette(c(gent_ramp))
-```
 
