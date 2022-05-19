@@ -15,6 +15,9 @@ library(sf)
 library(ggplot2)
 library(dplyr)
 library(shiny)
+library(leaflet)
+library(gridExtra)
+library(EnvStats)
 theme_set(theme_minimal())
 options(scipen = 999)
 ```
@@ -32,17 +35,26 @@ Objectives:
 - See if setting cb to TRUE when pulling places makes changes
 
 ## Loading necessary data
-```{r}
+```{r, results='hide'}
+state_lookup <- tigris::states() %>%
+  select(GEOID, STUSPS) %>%
+  st_drop_geometry()
 places <- readRDS("../outputs/geo_places.RDS")
 tracts <- readRDS("../outputs/geo_tracts.RDS")
 holc <- read.csv("../raw data/All_Population_Weighted_HOLC_Grades_pt2_Threshold.csv", colClasses = c("GEOID" = "character"))
-places_tracts <- readRDS("../outputs/geo_tracts_places.RDS")
+# places_tracts <- readRDS("../outputs/geo_tracts_places.RDS") %>%
+#   left_join(state_lookup, by = c("STATEFP" = "GEOID"))
+# places_tracts <- readRDS("../outputs/geo_tracts_places_intersection.RDS") %>%
+#   left_join(state_lookup, by = c("STATEFP" = "GEOID"))
+places_tracts <- readRDS("../outputs/final_places_tracts.RDS") %>%
+  left_join(state_lookup, by = c("STATEFP" = "GEOID"))
 holc_geo <- readRDS("../outputs/holc_geo.RDS")
 holc_place <- readRDS("../outputs/holc_place.RDS")
+places_pop_gt_50k <- readRDS("../outputs/places_pop_gt_50k") %>%
+  left_join(state_lookup, by = c("STATEFP.PLACE" = "GEOID"))
+all_acs_pops <- readRDS("../outputs/all_acs_pops.RDS")
 ```
-
-## How much bigger are combined places?
-```{r}
+```{r, echo=FALSE, results='hide'}
 place_areas <- holc_place %>%
   dplyr::mutate(place_area = as.numeric(sf::st_area(geometry))) %>%
   st_drop_geometry()
@@ -64,25 +76,22 @@ area_table <- holc_areas %>%
   dplyr::mutate(place_tract_ratio = tract_area / place_area)
 ```
 
-Plots to make sense of this. Include log transform as well.
-```{r}
+```{r, echo=FALSE, eval=FALSE}
 hist(area_table$place_tract_ratio)
 ```
 
 Plot holc graded tracts vs. areas
-```{r}
+```{r, echo=FALSE, eval=FALSE}
 plot(log(area_table$place_area)~log(area_table$tract_area))
 abline(lm(log(area_table$place_area)~log(area_table$tract_area)))
 ```
 
 Area of tracts.
-```{r}
+```{r, echo=FALSE}
 
 ```
 
-Some maps that will eventually become part of an app. Use leaflet.
-For now, combined places are red while holc boundaries are blue.
-```{r, results='hide'}
+```{r, echo=FALSE, eval=FALSE}
 selected_state = c("RI", "44")
 
 state_holc <- holc %>%
@@ -91,23 +100,154 @@ state_holc <- holc %>%
 
 state_holc_geo <- tracts %>%
   filter(GEOID %in% state_holc$GEOID) %>%
-  pull(geometry)
+  select(GEOID, geometry) %>%
+  st_as_sf() %>%
+    sf::st_set_crs(4269)
 
 state_place_geo <- holc_place %>%
   filter(CITY == "Providence", STUSPS.CITY == selected_state[1]) %>%
   #filter(CITY == "Providence" & STUSPS.CITY == "RI") %>%
-  pull(geometry)
+  pull(geometry) %>%
+  st_as_sf()
+
+pulled_places <- holc_geo %>%
+  filter(CITY == "Providence", STUSPS.CITY == selected_state[1]) %>%
+  select(PLACE, STUSPS.PLACE) %>%
+  distinct()
+state_place_geo_tracts <- pulled_places %>%
+  left_join(places_tracts, by = c("PLACE" = "NAME", "STUSPS.PLACE" = "STUSPS")) %>%
+  select(GEOID, geometry) %>%
+  st_as_sf() %>%
+    sf::st_set_crs(4269)
+
+#holc_place_intersection <- sf::st_intersection(state_place_geo_tracts, state_holc_geo)
+holc_place_intersection <- state_holc_geo %>%
+  filter(GEOID %in% state_place_geo_tracts$GEOID) %>%
+    sf::st_set_crs(4269)
+
+summary_table <- c(sum(sf::st_area(state_place_geo_tracts)), sum(sf::st_area(state_holc_geo)), sum(sf::st_area(holc_place_intersection)))
+
+summary_table <- sum(summary_table)
 
 state_place_plot <- ggplot() +
   geom_sf(data = (states() %>% filter(STUSPS == selected_state[1]) %>% pull(geometry))) +
   geom_sf(data = (places %>% filter(STATEFP == selected_state[2]) %>% pull(geometry))) +
-  geom_sf(data = state_place_geo, fill = "red", alpha = 0.5) +
-  geom_sf(data = state_holc_geo, fill = "blue", alpha = 0.5)
+  geom_sf(data = state_place_geo_tracts, fill = "blue", alpha = 0.5) +
+  geom_sf(data = state_holc_geo, fill = "green", alpha = 0.5) +
+  geom_sf(data = holc_place_intersection, fill = "red", alpha = 1.0) 
 
 plot(state_place_plot)
 ```
 
-Shiny version.
+## Mapping and Statistics
+
+### All Cities
+
+
+Data for all cities indicates that while the new places data takes up the largest land area and includes a larger populace (roughly 50% more), the places where that data intersects with the new HOLC data has the densest population, likely making them more relevant for our analysis. This is not to discount them from importance however, as the places data is still more dense than the holc graded tracts, which may indicate a movement in population of certain areas.  
+
+
+While outliers are removed because there are many of them (and they wreak havoc on the plot), the boxplots below indicate similar results for population density. The intersection of HOLC and places tracts have much higher density than either alone.
+
+
+These results are exclusive of one another. Will likely do a separate analysis including the results before separating tracts.
+
+
+```{r, echo = FALSE}
+
+state_holc <- holc
+
+state_holc_geo <- tracts %>%
+  filter(GEOID %in% state_holc$GEOID) %>%
+  select(GEOID, geometry) %>%
+  st_as_sf() %>%
+    sf::st_set_crs(4269)
+
+state_place_geo <- holc_place %>%
+  pull(geometry) %>%
+  st_as_sf()
+
+pulled_places <- holc_geo %>%
+  select(PLACE, STUSPS.PLACE) %>%
+  distinct()
+
+state_place_geo_tracts <- pulled_places %>%
+  left_join(places_tracts, by = c("PLACE" = "NAME", "STUSPS.PLACE" = "STUSPS")) %>%
+  select(GEOID, geometry) %>%
+  st_as_sf() %>%
+    sf::st_set_crs(4269)
+
+holc_place_intersection <- state_holc_geo %>%
+  filter(GEOID %in% state_place_geo_tracts$GEOID) %>%
+    dplyr::left_join(all_acs_pops, by = "GEOID") %>%
+    sf::st_set_crs(4269)
+
+state_place_geo_tracts_new <- state_place_geo_tracts %>%
+    dplyr::filter(!(GEOID %in% holc_place_intersection$GEOID)) %>%
+    dplyr::left_join(all_acs_pops, by = "GEOID")
+
+state_holc_geo_new <- state_holc_geo %>%
+    dplyr::filter(!(GEOID %in% holc_place_intersection$GEOID)) %>%
+    dplyr::left_join(all_acs_pops, by = "GEOID")
+
+
+a <- c(sum(as.numeric(sf::st_area(state_place_geo_tracts_new))),
+         sum(as.numeric(sf::st_area(state_holc_geo_new))),
+         sum(as.numeric(sf::st_area(holc_place_intersection))))
+b <- a / sum(a) * 100
+aa <- c(sum(state_place_geo_tracts_new$estimate, na.rm = TRUE),
+         sum(state_holc_geo_new$estimate, na.rm = TRUE),
+         sum(holc_place_intersection$estimate, na.rm = TRUE))
+bb <- aa / sum(aa) * 100
+bbb <- as.numeric(mapply("/", aa, a, SIMPLIFY = FALSE))*1000000
+bbb[is.na(bbb)] <- 0
+c <- c("Places Tracts", "HOLC Tracts", "Intersection")
+d <- as.data.frame(do.call("rbind", list(paste0(round(b, 2), "%"), paste0(round(bb, 2), "%"), round(bbb, 2))),
+                    row.names = c("Land Area", "Population", "Density (pop/km^2)"))
+colnames(d) <- c
+place_area_table <- d
+
+head(place_area_table)
+
+all_cities_plot <- ggplot() +
+  geom_sf(data = state_place_geo_tracts_new, fill = "blue", alpha = 0.5) +
+  geom_sf(data = state_holc_geo_new, fill = "green", alpha = 0.5) +
+  geom_sf(data = holc_place_intersection, fill = "red", alpha = 0.5)
+    
+
+
+  a <- as.numeric(sf::st_area(state_place_geo_tracts_new))
+  aa <- as.numeric(sf::st_area(state_holc_geo_new))
+  aaa <- as.numeric(sf::st_area(holc_place_intersection))
+  aaaa <- c(a, aa, aaa)
+  b <- rep("Places", length(a))
+  bb <- rep("HOLC", length(aa))
+  bbb <- rep("Intersection", length(aaa))
+  bbbb <- c(b, bb, bbb)
+  c <- state_place_geo_tracts_new$estimate
+  cc <- state_holc_geo_new$estimate
+  ccc <- holc_place_intersection$estimate
+  cccc <- c(c, cc, ccc)
+  d <- as.data.frame(cbind(bbbb, aaaa, cccc))
+  colnames(d) <- c("type", "area", "pop")
+  d <- d %>%
+    dplyr::mutate(area = as.numeric(area),
+                  pop = as.numeric(pop)) %>%
+    replace(is.na(.), 0) %>%
+    dplyr::mutate(density = pop / area * 1000000) %>%
+    replace(is.na(.), 0)
+  density_table <- d
+
+# Removed outliers because shape is ridiculous
+all_cities_density_plot <- ggplot(density_table)+
+  geom_boxplot(aes(y = density, x = type, fill = type), outlier.shape = NA)+
+  stat_n_text(aes(y = density, x = type)) +
+  scale_y_continuous(limits = quantile(density_table$density, c(0.1, 0.9)))
+
+plot(all_cities_density_plot)
+```
+
+### Individual Cities
 ```{r, echo = FALSE}
 city_table <- holc %>%
   dplyr::select(city, state) %>%
@@ -139,26 +279,200 @@ state_holc <- reactive({
 state_geo <- reactive({
   tigris::states() %>%
     dplyr::filter(STUSPS == selected_state()) %>%
-    dplyr::pull(geometry)
+    dplyr::pull(geometry) %>%
+    sf::st_set_crs(4269)
 })
 
 state_holc_geo <- reactive({
   tracts %>%
     dplyr::filter(GEOID %in% state_holc()$GEOID) %>%
-    dplyr::pull(geometry)
+    dplyr::select(GEOID, geometry) %>%
+    sf::st_as_sf() %>%
+    sf::st_set_crs(4269)
 })
 
 state_place_geo <- reactive({
   holc_place %>%
     dplyr::filter(CITY == selected_city(), STUSPS.CITY == selected_state()) %>%
-    dplyr::pull(geometry)
+    dplyr::pull(geometry) %>%
+    sf::st_as_sf()
 })
 
+pulled_places <- reactive({
+  holc_geo %>%
+  dplyr::filter(CITY == selected_city(), STUSPS.CITY == selected_state()) %>%
+  dplyr::select(PLACE, STUSPS.PLACE) %>%
+  dplyr::distinct()
+})
+
+state_place_geo_tracts <- reactive({
+  pulled_places() %>%
+  dplyr::left_join(places_tracts, by = c("PLACE" = "NAME", "STUSPS.PLACE" = "STUSPS")) %>%
+  dplyr::select(GEOID, geometry) %>%
+  sf::st_as_sf() %>%
+    sf::st_set_crs(4269)
+})
+
+holc_place_intersection <- reactive({
+  state_holc_geo() %>%
+    dplyr::filter(GEOID %in% state_place_geo_tracts()$GEOID) %>%
+    dplyr::left_join(all_acs_pops, by = "GEOID") %>%
+    sf::st_set_crs(4269)
+})
+
+### CHECK THIS ONE OUT
+
+state_place_geo_tracts_new <- reactive({
+  state_place_geo_tracts() %>%
+    dplyr::filter(!(GEOID %in% holc_place_intersection()$GEOID)) %>%
+    dplyr::left_join(all_acs_pops, by = "GEOID")
+})
+
+state_holc_geo_new <- reactive({
+  state_holc_geo() %>%
+    dplyr::filter(!(GEOID %in% holc_place_intersection()$GEOID)) %>%
+    dplyr::left_join(all_acs_pops, by = "GEOID")
+})
+
+
+place_area_table <- reactive({
+  a <- c(sum(as.numeric(sf::st_area(state_place_geo_tracts_new()))),
+         sum(as.numeric(sf::st_area(state_holc_geo_new()))),
+         sum(as.numeric(sf::st_area(holc_place_intersection()))))
+  b <- a / sum(a) * 100
+  aa <- c(sum(state_place_geo_tracts_new()$estimate, na.rm = TRUE),
+         sum(state_holc_geo_new()$estimate, na.rm = TRUE),
+         sum(holc_place_intersection()$estimate, na.rm = TRUE))
+  bb <- aa / sum(aa) * 100
+  bbb <- as.numeric(mapply("/", aa, a, SIMPLIFY = FALSE))*1000000
+  bbb[is.na(bbb)] <- 0
+  c <- c("Places Tracts", "HOLC Tracts", "Intersection")
+  d <- as.data.frame(do.call("rbind", list(paste0(round(b, 2), "%"), paste0(round(bb, 2), "%"), round(bbb, 2))),
+                     row.names = c("Land Area", "Population", "Density (pop/km^2)"))
+  colnames(d) <- c
+  d
+})
+
+density_table <- reactive({
+  a <- as.numeric(sf::st_area(state_place_geo_tracts_new()))
+  aa <- as.numeric(sf::st_area(state_holc_geo_new()))
+  aaa <- as.numeric(sf::st_area(holc_place_intersection()))
+  aaaa <- c(a, aa, aaa)
+  b <- rep("Places", length(a))
+  bb <- rep("HOLC", length(aa))
+  bbb <- rep("Intersection", length(aaa))
+  bbbb <- c(b, bb, bbb)
+  c <- state_place_geo_tracts_new()$estimate
+  cc <- state_holc_geo_new()$estimate
+  ccc <- holc_place_intersection()$estimate
+  cccc <- c(c, cc, ccc)
+  d <- as.data.frame(cbind(bbbb, aaaa, cccc))
+  colnames(d) <- c("type", "area", "pop")
+  d <- d %>%
+    dplyr::mutate(area = as.numeric(area),
+                  pop = as.numeric(pop)) %>%
+    replace(is.na(.), 0) %>%
+    dplyr::mutate(density = pop / area * 1000000) %>%
+    replace(is.na(.), 0)
+  d
+})
+
+# renderPlot({
+#   ggplot() +
+#   #geom_sf(data = state_geo()) +
+#   #geom_sf(data = (places %>% filter(STATEFP == selected_state[2]) %>% pull(geometry))) +
+#   geom_sf(data = state_place_geo_tracts_new(), fill = "blue", alpha = 0.5) +
+#   geom_sf(data = state_holc_geo_new(), fill = "green", alpha = 0.5) +
+#   geom_sf(data = holc_place_intersection(), fill = "red", alpha = 0.5)
+# })
+```
+
+```{r, echo=FALSE}
+splitLayout(
+  renderLeaflet({
+    leaflet() %>%
+      addProviderTiles("CartoDB.Voyager") %>%
+      addPolygons(data = state_holc_geo_new(),
+                  weight = 0.5,
+                  opacity = 0.5, 
+                  color = "green") %>%
+      addPolygons(data = state_place_geo_tracts_new(),
+                  weight = 0.5,
+                  opacity = 0.5, 
+                  color = "blue") %>%
+      addPolygons(data = holc_place_intersection(),
+                  weight = 1,
+                  opacity = 1,
+                  color = "red") %>%
+      addLegend("bottomright", 
+                colors = c("green", "blue", "red"), 
+                labels = c("HOLC Tracts", "Place Tracts", "Intersection"),
+                title = "Overlap of Tracts",
+                opacity = 1)
+  }),
+  
+  renderTable({
+    place_area_table()
+  },
+  rownames = TRUE,
+  colnames = TRUE)
+)
+
+# renderTable({
+#   density_table()
+#   },
+#   rownames = FALSE,
+#   colnames = TRUE)
+
 renderPlot({
-  ggplot() +
-  geom_sf(data = state_geo()) +
-  #geom_sf(data = (places %>% filter(STATEFP == selected_state[2]) %>% pull(geometry))) +
-  geom_sf(data = state_place_geo(), fill = "red", alpha = 0.5) +
-  geom_sf(data = state_holc_geo(), fill = "blue", alpha = 0.5)
+  ggplot(density_table())+
+  geom_boxplot(aes(y = density, x = type, fill = type))+
+  stat_n_text(aes(y = density, x = type))
+})
+
+```
+
+### Places with Pop > 50k
+
+```{r, echo=FALSE}
+place_table <- places_pop_gt_50k %>%
+  dplyr::select(PLACE, STUSPS, STATEFP.PLACE) %>%
+  dplyr::distinct() %>%
+  dplyr::mutate(place_state = paste0(PLACE, ", ", STUSPS))
+
+inputPanel(
+  shiny::selectInput("place", label = "Place Name",
+                     choices = place_table$place_state)
+)
+
+selected_place <- reactive({
+  place_table %>%
+    dplyr::filter(place_state == input$place) %>%
+    dplyr::pull(PLACE)
+})
+
+selected_place_state <- reactive({
+  place_table %>%
+    dplyr::filter(place_state == input$place) %>%
+    dplyr::pull(STATEFP.PLACE)
+})
+
+selected_place_geo <- reactive({
+  places_tracts %>%
+    dplyr::filter(NAME == selected_place() & STATEFP == selected_place_state()) %>%
+    sf::st_as_sf() %>%
+    sf::st_set_crs(4269)
+})
+```
+
+
+```{r, echo=FALSE}
+renderLeaflet({
+  leaflet() %>%
+    addProviderTiles("CartoDB.Voyager") %>%
+    addPolygons(data = selected_place_geo(),
+                weight = 0.5,
+                opacity = 0.5,
+                color = "green")
 })
 ```
