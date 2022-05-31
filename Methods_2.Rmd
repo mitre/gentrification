@@ -650,18 +650,20 @@ renderDataTable(
 
 ```
 
-# Compare Results {}
+# Compare Results 
+
 
 
 ```{r, echo = FALSE}
 outcomes <- outcomes %>%
   select(GEOID, `Life Expectancy`,
-         BINGE, BPHIGH, CANCER, CASTHMA, DIABETES, HIGHCHOL, MHLTH, PHLTH, SLEEP) %>%
+         BINGE, CSMOKING, BPHIGH, CANCER, CASTHMA, DIABETES, HIGHCHOL, MHLTH, PHLTH, LPA, SLEEP, ACCESS2, DENTAL) %>%
   unique()
 
 colnames(outcomes) <- c("GEOID",
                         "Life Expectancy",
                         "Binge Drinking",
+                        "Current Smoker",
                         "High Blood Pressure",
                         "Cancer",
                         "Asthma",
@@ -669,7 +671,10 @@ colnames(outcomes) <- c("GEOID",
                         "High Cholesterol",
                         "Poor Mental Health",
                         "Poor Physical Health",
-                        "Insufficient Sleep")
+                        "Limited Physical Activity",
+                        "Insufficient Sleep",
+                        "Uninsured",
+                        "Dental Visits")
 
 outcomes <- outcomes %>%
   gather(key = "Health Outcomes",
@@ -726,19 +731,32 @@ renderTmap({
 
 splitLayout(
   renderPlot({
-  outcomes_measures() %>%
-    ggplot(aes(y = Prevalence, 
-               x = factor(`Positive Indicator`))) +
-    geom_violin(aes(fill = factor(`Positive Indicator`)),
-                alpha = 0.6, 
-                color = "white",
-                show.legend = FALSE) +
+    
+    counts <- outcomes_measures() %>%
+      group_by(`Positive Indicator`) %>%
+      summarize(n = n(),
+                Prevalence = mean(Prevalence, na.rm = T))
+    
+    outcomes_measures() %>%
+      ggplot(aes(y = Prevalence, 
+                 x = factor(`Positive Indicator`))) +
+      geom_violin(aes(fill = factor(`Positive Indicator`)),
+                  alpha = 0.6, 
+                  color = "white",
+                  show.legend = FALSE) +
+      geom_text(data = counts, aes(label = n)) +
       labs(x = "Number of Positive Indicators of Gentrification",
            y = paste("Prevalence"),
-           title = paste(input$brfss))
-    }),
+           title = paste(input$brfss, "by # of Gentrification Indicators"))
+  }),
   
   renderPlot({
+    
+    counts <- outcomes_measures() %>%
+      group_by(`Still Susceptible`) %>%
+      summarize(n = n(),
+                Prevalence = mean(Prevalence, na.rm = T))
+    
     outcomes_measures() %>%
       ggplot(aes(y = Prevalence,
                  x = factor(`Still Susceptible`))) +
@@ -746,9 +764,10 @@ splitLayout(
                   alpha = 0.6, 
                   color = "white",
                   show.legend = FALSE) +
-      labs(x = "Number of Still Eligible Indicators of Gentrification",
+      geom_text(data = counts, aes(label = n)) +
+      labs(x = "Number of Still Susceptible Indicators of Gentrification",
            y = paste("Prevalence"),
-           title = paste(input$brfss))
+           title = paste(input$brfss, "by # of Susceptibility Indicators"))
   })
 )
 
