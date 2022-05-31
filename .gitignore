@@ -9,9 +9,9 @@
 *.xlsx
 *.png
 *.pptx
-*.RDS
 *.pdf
 *.nb.html
+*.RDS
 
 .DS_Store
 .RDataTmp
