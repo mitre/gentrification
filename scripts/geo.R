@@ -159,7 +159,7 @@ if (!file.exists("outputs/holc_geo.RDS")) {
 # Each row is a city + state in the holc file, with the combined places geometry of intersected places.
 if (!file.exists("outputs/holc_place.RDS")) {
   # Pulls tract data with city, place, and holc grade
-  holc_geo <- loadRDS("outputs/holc_geo.RDS")
+  holc_geo <- readRDS("outputs/holc_geo.RDS")
   
   # Pulls cities and states; 202 total
   holc_cities <- holc_geo %>%
@@ -216,7 +216,7 @@ if (!file.exists("outputs/holc_place.RDS")) {
 # places with populations of greater than 50k
 if (!file.exists("outputs/places_pop_gt_50k.RDS")) {
   # Pulls tracts grouped by place
-  places_tracts <- loadRDS("outputs/final_places_tracts.RDS")
+  places_tracts <- readRDS("outputs/final_places_tracts.RDS")
 
   # Pulls states
   place_statefp <- unique(places_tracts %>%
@@ -233,6 +233,7 @@ if (!file.exists("outputs/places_pop_gt_50k.RDS")) {
     
     # Creates dataframe with place, state, and total population estimate of place
     place_population <- places_tracts %>% 
+      st_as_sf() %>%
       st_drop_geometry() %>%
       filter(STATEFP == state) %>%
       left_join(acs_populations, by = "GEOID") %>%
