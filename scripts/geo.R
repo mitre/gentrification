@@ -1,3 +1,5 @@
+# Assign tracts to cities and places, create combined places geographies for cities
+
 library(tigris)
 library(sp)
 library(sf)
@@ -5,8 +7,6 @@ library(ggplot2)
 library(dplyr)
 library(tidycensus)
 library(gridExtra)
-
-census_api_key("ff942edcde192676c9bf58546ca77f7e97b58a46")
 
 
 ### geo_places.RDS
