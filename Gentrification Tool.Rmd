@@ -23,7 +23,6 @@ library(MITREShiny)
 library(DT)
 library(plotly)
 
-setwd("~/Documents/MIP/gentrification")
 tracts <- readRDS("outputs/geo_tracts.RDS")
 
 indicators <- readRDS("outputs/indicators.RDS") %>%
@@ -63,11 +62,13 @@ Two common concepts are used in defining gentrification.
 
 Indicators can be used to define eligibility, determination, or both.
 
-In addition to areal indicators, time period of evaluation and reference geographic region are also important decisions which may impact the quantification of tracts as gentrified.
+In addition to areal indicators, time period of evaluation and reference geographic region are also important decisions which may impact the quantification of tracts as gentrified:
 
-# Explore Indicators 
+# Explore Indicators
 
-```{r data_prep, echo=FALSE, message=FALSE,}
+To inform decisions around what how you might come to a reasonable
+
+```{r data_prep, echo=FALSE, message=FALSE}
 # Additional Data prep to reduce processing later on
 data <- indicators %>%
     select(GEOID, YEAR, STATE, COUNTY, `Total Pop`,
@@ -84,24 +85,39 @@ data <- indicators %>%
   mutate(Rank = percent_rank(Value)) %>%
   ungroup()
 
-# Generates scatter plot for all the measure functions
+# Generates scatter plot for all the measure functions used in the Explore Indicators Section
+#'
+#' @param data dataframe with columns `Rank Start`, `Rank End`, `Total Pop End` and `Label`
+#' @return ggplot with defined aesthetics and geoms based on selected measure input `input$measure`
+
 plot_measure_scatter <- function(data){
-  data %>%
+  plot <- data %>%
    ggplot(aes(x = `Rank Start`, y = `Rank End`)) +
       geom_point(aes(size = `Total Pop End`, color = Label), alpha = 0.7) +
       scale_color_manual(values = gent_colors) +
       theme(aspect.ratio = 1,
             legend.position = "bottom") +
     labs(title = paste(input$measure))
+  
+  return(plot)
 }
 
+
+#' Processes data to add categorical gentrification labels based on threshold inputs
+#'
+#' @param data dataframe with columns `Rank Start` and `Rank End`
+#' @param input_eligibility User Defined input to determine the eligibility threshold
+#' @param input_determination User Defined input to determine the determination threshold 
+#' @return labelled datasframe with additional column `Label`
+
 add_gentrification_label <- function(data, input_eligibility, input_determination){
-  data %>%
+  labelled <- data %>%
     mutate(Label = case_when(`Rank Start` > input_eligibility ~ "Not Eligible",
                              `Rank Start` <= input_eligibility & 
                                `Rank End` <= input_determination ~ "Still Susceptible",
                              `Rank Start` <= input_eligibility & 
                                `Rank End` > input_determination ~ "Positive Indicator"))
+  return(labelled)
 }
 ```
 
@@ -198,15 +214,14 @@ splitLayout(
 
 ```
 
-
 # Define Indicators {.tabset}
 
 Select the thresholds for each potential measure to define the eligibility and determination thresholds relative relative to the surrounding tracts in the county.
 
-The selected thresholds will persist throughout the rest of the document. 
+The selected thresholds will persist throughout the rest of the document.
 
-- Eligibility threshold characterizes which set of tracts can be considered candidates for gentrification.
-- Determination thresholds characterize what change is significant to capture neighborhood change.
+-   Eligibility threshold characterizes which set of tracts can be considered candidates for gentrification.
+-   Determination thresholds characterize what change is significant to capture neighborhood change.
 
 ## Median House Income
 
@@ -418,7 +433,6 @@ splitLayout(
 )
 ```
 
-
 ## Housing Structure Age
 
 ```{r hsa, echo=FALSE}
@@ -542,10 +556,30 @@ splitLayout(
 ) 
 ```
 
-
 # Select Indicators
 
 Selection of indicators should be guided by local expertise in identifying the relevant indicators of gentrification within that community.
+
+Based on the @Bhavsar2020 paper, the following were the most commonly used indicators across 24 papers examined in a recent literature review.
+
+| Indicator Type                       | N = 24 (%) |
+|:-------------------------------------|:-----------|
+| Median Household income              | 17 (70.8%) |
+| Education                            | 17 (70.8%) |
+| Rent                                 | 12 (50%)   |
+| Home Value                           | 6 (25%)    |
+| Race                                 | 6 (25%)    |
+| Poverty                              | 4 (16.7%)  |
+| Housing Stock Age                    | 3 (12.5%)  |
+| Composite Measure (SEIFA, IMD, NCGS) | 3 (12.5%)  |
+| Immigrant Population %               | 2 (8.4%)   |
+| Occupation                           | 2 (8.4%)   |
+| Residential Mobility                 | 2 (8.4%)   |
+
+Some additional measures used (though only appearing once among the reviewed literature) included Non-family households, Owner Occupied, Unemployment, Dollar Amount for Improvement Loans, and Mean Dollar Amount of Home Loans.
+
+Our tool defaults to the top 3 most frequently used indicators of gentrification, but includes the top 7 most commonly used indicators.
+
 ```{r, echo = FALSE}
 
 
@@ -650,9 +684,15 @@ renderDataTable(
 
 ```
 
-# Compare Results 
+# Compare Results
 
+Given the selected measures and thresholds to mark gentrification, this tool allows for comparisons with selected health outcomes.
 
+The health outcomes data come from the [U. S. Small-area Life Expectancy Estimates Project (USALEEP)](https://www.cdc.gov/nchs/nvss/usaleep/usaleep.html), and from CDC's [PLACES: Local Data for Better Health](https://chronicdata.cdc.gov/browse?category=500+Cities+%26+Places&sortBy=newest&utf8).
+
+To use this section, select a health outcome of interest from the drop-down list. The following visuals will display a map colored by the number and type of gentrification indicators, with bubbles representing the prevalence of the the selected health outcome.
+
+The violin plots below show the relationship between the prevalence distribution and the number of Positive Gentrification Indicators (left) and the number of Still Eligible Gentrification Indicator (right).
 
 ```{r, echo = FALSE}
 outcomes <- outcomes %>%
@@ -772,8 +812,3 @@ splitLayout(
 )
 
 ```
-
-https://stackoverflow.com/questions/40357115/column-with-color-values-in-tmap
-https://spatialanalysis.github.io/lab_tutorials/4_R_Mapping.html
-
-

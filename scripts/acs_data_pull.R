@@ -87,12 +87,6 @@ if (!file.exists("outputs/acs_2012_raw.RDS")) {
 }
 acs_2012 <- readRDS("outputs/acs_2012_raw.RDS")
 
-# if (!file.exists("outputs/acs_2019_raw.RDS")) {
-#   acs_2019 <- get_acs_vars(2019)
-#   saveRDS(acs_2019, "outputs/acs_2019_raw.RDS")
-# }
-# acs_2019 <- readRDS("outputs/acs_2019_raw.RDS")
-
 
 if (!file.exists("outputs/acs_2020_raw.RDS")) {
   acs_2020 <- get_acs_vars(2020)

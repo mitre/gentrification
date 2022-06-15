@@ -1,8 +1,13 @@
 # Creating Dataset of Features for 2010 CTs
 library(tidyverse)
 
+#' Function to clean inconsistencies in County Names 
+#' 
+#' @param data Dataset with COUNTY names column
+#' @return cleaned dataset with same COUNTY column cleaned to fix inconsistencies in county names
+
 fix_county_names <- function(data){
-  data %>%
+  cleaned <- data %>%
     mutate(COUNTY = ifelse(COUNTY %in% c("Du Page", "Dupage", "DuPage"), yes = "DuPage", no = COUNTY),
            COUNTY = ifelse(COUNTY %in% c("De Soto", "Desoto", "DeSoto"), yes = "DeSoto", no = COUNTY ),
            COUNTY = ifelse(COUNTY %in% c("La Porte", "Laporte", "LaPorte"),yes = "La Porte", no = COUNTY),
@@ -14,6 +19,8 @@ fix_county_names <- function(data){
            COUNTY = str_replace(COUNTY, "Prince Georges", "Prince George's"),
            COUNTY = str_to_title(COUNTY)) %>%
     unique()
+  
+  return(cleaned)
 }
 
 # Process Indicators Data --------
