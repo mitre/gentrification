@@ -25,6 +25,7 @@ library(plotly)
 library(rgdal)
 
 tracts <- readRDS("outputs/geo_tracts.RDS")
+st_crs(tracts) = 4326
 
 indicators <- readRDS("outputs/indicators.RDS") %>%
   mutate(STATE_FIP = substr(GEOID, 1,2),
