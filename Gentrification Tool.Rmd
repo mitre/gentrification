@@ -22,6 +22,7 @@ library(sf)
 library(MITREShiny)
 library(DT)
 library(plotly)
+library(rgdal)
 
 tracts <- readRDS("outputs/geo_tracts.RDS")
 
@@ -65,8 +66,6 @@ Indicators can be used to define eligibility, determination, or both.
 In addition to areal indicators, time period of evaluation and reference geographic region are also important decisions which may impact the quantification of tracts as gentrified:
 
 # Explore Indicators
-
-To inform decisions around what how you might come to a reasonable
 
 ```{r data_prep, echo=FALSE, message=FALSE}
 # Additional Data prep to reduce processing later on
