@@ -1,0 +1,368 @@
+---
+title: "Gentrification Outline"
+output: 
+  html_notebook params:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    css:  "www/app.css"
+  runtime: shiny
+stats_list: NA
+---
+
+```{r setup, include = FALSE}
+
+library(tidyverse)
+library(shiny)
+library(tigris)
+library(sf)
+library(tmap)
+
+
+# Load in data
+places <- readRDS("../outputs/geo_places.RDS") # Census Places Shapefiles
+tracts <- readRDS("../outputs/geo_tracts.RDS") # Tract Shapefiles
+holc <- read.csv("../raw data/All_Population_Weighted_HOLC_Grades_pt2_Threshold.csv") %>%
+  mutate(GEOID = str_pad(GEOID,
+                         width = 11, 
+                         pad = "0", 
+                         side="left"))
+
+lsad <- readxl::read_xlsx("../raw data/LSAD_crosswalk.xlsx", n_max = 15) # Census Places designation types
+
+
+# Combine Data
+holc_tracts <- merge(tracts, holc, by = "GEOID")
+places <- left_join(places, lsad, by = "LSAD")
+```
+
+## Abstract
+
+Hypothesis: Gentrification Mediates the Effects of Redlining on modern day health outcomes
+
+Goal: Researchers should include Gentrification in models that look at redlining on present day health outcomes
+
+Impact: Importance in correctly identifying gentrification at a national level to include guardrails for federal programs that adopt place-based interventions.
+
+## Background & Lit Review
+
+Present day health outcomes are strongly tied to geography. "Place based people strategies" which focus on areas of geographic interest to address disadvantage of residents in concentrated areas [Place-Based Policies (nber.org)](https://www.nber.org/system/files/working_papers/w20049/w20049.pdf), range from economic strategies like Opportuntity Zones to health care related strategies, like designated HPSAs or MUAs.
+
+The push for using geography as a strategy to address health disparities is accepted by rural advocates [Microsoft Word - Integration Paper final 04_01_11 (rupri.org)](https://rupri.org/wp-content/uploads/Place-based-Policies-and-Public-Health-Road-to-Healthy-Rural-People-and-Places-2011.pdf) and urban advocates [find citation] alikes. While systematic studies are inconclusive on their the effects of these interventions on health inequalities [Examining the effectiveness of place-based interventions to improve public health and reduce health inequalities: an umbrella review \| BMC Public Health \| Full Text (biomedcentral.com)](https://bmcpublichealth.biomedcentral.com/articles/10.1186/s12889-021-11852-z), there are concerted efforts to pursue and invest in place based people strategies in light of emerging social determinants of health literature.
+
+People based place strategies have not always sought to improve social equity and consequently health equity. Historic redlining involved implementing strategies in which low income minority communities were systematically denied opportunity and consequently increased disparities in generational wealth and health.
+
+The impact of redlining on present day health is well-documented, including asthma, birth outcomes, cancer, and poor physical and mental health. Redlining has also had direct effects on environmental exposures that like heat and food environment (poor housing qualitity?)
+
+Redlining solidified and exacerbated
+
+Present examples:
+
+Investment in gentrification: The eligibility of gentrifying neighborhoods for federal place-based economic investment in U.S. cities (Oct 2020)
+
+-   Relationship between federal place-based programs in U.S. cities
+
+    -   New Market Tax Credits
+
+    -   Opportunity Zones
+
+    -   Low Income Housing Credits
+
+    -   Community Development Financial Institution funds
+
+-   Results: gentrifying neighborhoods are eligible for each of the four programs, some eligible for multiple. Opportunity zones has 2x likely that gentrifying tracts are eligible
+
+### Place-Based Policies
+
+[Place-Based Policies (nber.org)](https://www.nber.org/system/files/working_papers/w20049/w20049.pdf)
+
+-   "place-based strategies" - target areas irrespective of whether there are disadvantaged people or many people at all
+
+-   "place-based people strategies" - geographically targeted with the intent and structure of helping disadvantaged residents
+
+-   "people-based strategies" - LITC
+
+Direct vs indirect strategies
+
+-   direct (increase economic activity and strengthen labor markets where people live
+
+-   indirect (increase access of those people to location where labor markets are stronger)
+
+Examples: Federal Empowerment Zone Program (local governments submit proposals for zones made up of relatively poor, high-unemployment Census tracts)
+
+[Microsoft Word - Integration Paper final 04_01_11 (rupri.org)](https://rupri.org/wp-content/uploads/Place-based-Policies-and-Public-Health-Road-to-Healthy-Rural-People-and-Places-2011.pdf)
+
+Place-based policies and Public Health: The road to health rural people and places
+
+[Addressing Health Disparities Is a Place-Based Issue (nih.gov)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4816016/)
+
+[Examining the effectiveness of place-based interventions to improve public health and reduce health inequalities: an umbrella review \| BMC Public Health \| Full Text (biomedcentral.com)](https://bmcpublichealth.biomedcentral.com/articles/10.1186/s12889-021-11852-z)
+
+[Housing and health inequalities A synthesis of systematic reviews of interventions aimed at different pathways linking housing and health \| Elsevier Enhanced Reader](https://reader.elsevier.com/reader/sd/pii/S1353829210001486?token=043A087CEDEB9E015FE06509FB56C2A3D757100668455E287F62D636AFD1B5B08DD4507D73627134FC4853CFB15D7DC9&originRegion=us-east-1&originCreation=20220201153720)
+
+-   three pathways between housing and health
+
+    -   internal housing conditions (lead, carbon monoxide, cold/damp)
+
+    -   area characteristics (crime, social disorder, lack of access to social ammentites)
+
+    -   housing tenure (owning home may lead to feelings of security or prestige, indicator of greater long term command)
+
+### Redlining & Health
+
+-   known negative effects on health
+
+    -   asthma [Associations between historical residential redlining and current age-adjusted rates of emergency department visits due to asthma across eight cities in California: an ecological study - ScienceDirect](https://www.sciencedirect.com/science/article/pii/S2542519619302414)
+
+    -   birth outcomes [Structural Racism, Historical Redlining, and Risk of Preterm Birth in New York City, 2013--2017 \| AJPH \| Vol. 110 Issue 7 (aphapublications.org)](https://ajph.aphapublications.org/doi/full/10.2105/AJPH.2020.305656)
+
+    -   cancer [Cancer Stage at Diagnosis, Historical Redlining, and Current Neighborhood Characteristics: Breast, Cervical, Lung, and Colorectal Cancers, Massachusetts, 2001--2015 \| American Journal of Epidemiology \| Oxford Academic (oup.com)](https://academic.oup.com/aje/article/189/10/1065/5812653)
+
+    -   heat [Climate \| Free Full-Text \| The Effects of Historical Housing Policies on Resident Exposure to Intra-Urban Heat: A Study of 108 US Urban Areas \| HTML (mdpi.com)](https://www.mdpi.com/2225-1154/8/1/12/htm)
+
+    -   food environment [Linking historical discriminatory housing patterns to the contemporary food environment in Baltimore - ScienceDirect](https://www.sciencedirect.com/science/article/pii/S1877584520300654)
+
+    -   poor physical & mental health [The legacy of structural racism: Associations between historic redlining, current mortgage lending, and health - PubMed (nih.gov)](https://pubmed.ncbi.nlm.nih.gov/33997243/)
+
+### Redlining & Gentrification
+
+-   [Impacts of Gentrification on Health in the US: a Systematic Review of the Literature (nih.gov)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7704880/) (makes connection between redlining and gentrification)
+
+-   rent gap hypothesis [Gentrification and the Rent Gap on JSTOR](https://www.jstor.org/stable/2563279)
+
+-   [Smith Theory of /Gentrification (cuny.edu)](https://eportfolios.macaulay.cuny.edu/chin15/files/2015/02/Smith-Theory-of-_Gentrification.pdf) A back to the City Movement by Capital, not People
+
+-   Gentrification and the Role of Public Investment:
+
+    -   Gentrification is tied to historical patterns of residential segregation; segregated neighborhoods experience the "double insult---a 'one-two' knockout" of neglect and white flight in the 1950s through 1970s followed by the forces of gentrifying revitalization since the 1980s
+
+### Gentrification & Health
+
+-   results show mixed results, suggests positive association between gentrification for white folks, negative for black americans
+-   Gibbons, J., & Barton, M. S. (2016). The association of minority self- rated health with black versus white gentrification. Journal of Urban Health: Bulletin of the New York Academy of Medicine, **93**, 909--922. <doi:10.1007/s11524-016-0087-0>
+
+[Aging in Place in Gentrifying Neighborhoods: Implications for Physical and Mental Health \| The Gerontologist \| Oxford Academic (oup.com)](https://academic.oup.com/gerontologist/article/58/1/26/4049431)
+
+-   National Study of Gentrification for 65+
+
+------------------------------------------------------------------------
+
+## Methods
+
+### Data & Sample
+
+#### Longitudinal Tract Database (LTDB) - 1970, 1980, 1990, 2000
+
+The Longitudinal Tract Data Base (LTDB) provides public-use tools to create estimates within 2010 tract boundaries for any tract-level data (from the census or other sources) that are available for prior years as early as 1970 and now also for 2015-2019 and 2020.
+
+-   Data \> LTDB
+
+    -   `tract1970Data.dbf`
+
+    -   `tract1980Data.dbf`
+
+    -   `tract1990Data.dbf`
+
+    -   `tract2000Data.dbf`
+
+    -   `tract2010Data.dbf`
+
+-   Scripts \> `ltdb_cleaning.R`
+
+```{r}
+ltdb <- readRDS("../outputs/ltdb_combined.RDS")
+
+head(ltdb)
+```
+
+#### American Community Survey (ACS) - 2000, 2019
+
+-   Scripts \> `acs_data_pull.R`
+
+```{r}
+acs_2012_processed <- readRDS("../outputs/acs_2012.RDS")
+acs_2019_processed <- readRDS("../outputs/acs_2019.RDS")
+
+head(acs_2012_processed)
+
+head(acs_2019_processed)
+```
+
+#### PLACES
+
+-   Raw Data \> `500_Cities__Local_Data_for_Better_Health__2019_release.csv`
+
+```{r}
+outcomes <- readRDS("../outputs/outcomes.RDS")
+
+head(outcomes)
+```
+
+#### US Small-Area Life Expectancy Estimation Project (USALEEP)
+
+-   Raw Data \> `UA_A.csv`
+
+### Combined Dataset
+
+-   scripts \> `combine.R`
+
+```{r}
+combined <- readRDS("../outputs/combined.RDS")
+
+head(combined)
+```
+
+### Measures
+
++---------------------------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
+| Method                                                                                                        | Eligibility                                                                                                                                                          | Determination                                                                                                                                   |
++===============================================================================================================+======================================================================================================================================================================+=================================================================================================================================================+
+| Hammel & Wyly (1996)                                                                                          |                                                                                                                                                                      |                                                                                                                                                 |
++---------------------------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
+| Freedman (2005)                                                                                               | -   Be located in the central city at the beginning of the intercensal period                                                                                        | -   Have a percentage increase in educational attainment greater than the median increase in educational attainment for that metropolitan area. |
+|                                                                                                               |                                                                                                                                                                      |                                                                                                                                                 |
+|                                                                                                               | -   Have a median income less than the median (40th percentile) for that metropolitan area at the beginning of the intercensal period                                | -   Have an increase in real housing prices during the intercensal period                                                                       |
+|                                                                                                               |                                                                                                                                                                      |                                                                                                                                                 |
+|                                                                                                               | -   Have a proportion of housing built within the past 20 years lower than the proportion found at the median (40th percentile) for the respective metropolitan area |                                                                                                                                                 |
++---------------------------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
+| [Governing](https://www.governing.com/archive/gentrification-report-methodology.html) (2015) based on Freeman | -   Pop \> 500                                                                                                                                                       | -   \% of Bachelors in 25+ is \> 66th percentile                                                                                                |
+|                                                                                                               |                                                                                                                                                                      |                                                                                                                                                 |
+|                                                                                                               | -   Median Household Income \< 40th percentile                                                                                                                       | -   Increase in Median home value (inflation adjusted)                                                                                          |
+|                                                                                                               |                                                                                                                                                                      |                                                                                                                                                 |
+|                                                                                                               | -   Median Home value \< 40th percentile                                                                                                                             | -   \% increase in inflation adjusted home value \> 66th percentile                                                                             |
++---------------------------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
+| Ken Steif                                                                                                     |                                                                                                                                                                      |                                                                                                                                                 |
++---------------------------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
+
+-   Scripts \> `methods.R`
+
+    -   Governing (DONE)
+
+    -   Freeman
+
+Life expectancy - [NVSS - United States Small-Area Life Expectancy Estimates Project (cdc.gov)](https://www.cdc.gov/nchs/nvss/usaleep/usaleep.html)
+
+------------------------------------------------------------------------
+
+## Results
+
+### Table 1: Descriptive Statistics
+
++------------------------------------------+-------------+-----------------+--------------+-----------------+
+| Characteristics of Tracts                | Redlined    | Redlined        | Not Redlined | Not Redlined    |
++==========================================+=============+=================+==============+=================+
+| Method 1: Lance Freeman                  | Gentrified\ | Not Gentrified\ | Gentrified\  | Not Gentrified\ |
+|                                          | (n = )      | (n = )          | (n = )       | (n = )          |
++------------------------------------------+-------------+-----------------+--------------+-----------------+
+| Neighborhood Characteristics             |             |                 |              |                 |
+|                                          |             |                 |              |                 |
+| -   Median Household Income              |             |                 |              |                 |
+|                                          |             |                 |              |                 |
+| -   Median Home Value                    |             |                 |              |                 |
+|                                          |             |                 |              |                 |
+| -   \% Education                         |             |                 |              |                 |
+|                                          |             |                 |              |                 |
+| -   \% Race Ethnicity (White, Non-white) |             |                 |              |                 |
+|                                          |             |                 |              |                 |
+| -   \% Rent/Own                          |             |                 |              |                 |
+|                                          |             |                 |              |                 |
+| -   Median Home age                      |             |                 |              |                 |
+|                                          |             |                 |              |                 |
+| Health Outcomes                          |             |                 |              |                 |
+|                                          |             |                 |              |                 |
+| -   Life Expectancy                      |             |                 |              |                 |
+|                                          |             |                 |              |                 |
+| -   Self-reported Physical Health        |             |                 |              |                 |
+|                                          |             |                 |              |                 |
+| -   Self-reported Mental Health          |             |                 |              |                 |
+|                                          |             |                 |              |                 |
+| -   Prevalent Chronic Conditions         |             |                 |              |                 |
++------------------------------------------+-------------+-----------------+--------------+-----------------+
+| Method 2: Lisa Bates?                    |             |                 |              |                 |
++------------------------------------------+-------------+-----------------+--------------+-----------------+
+
+### Model Results
+
+Model 0: Baseline models (replicating prior research)
+
+-   Univariate: Health Outcomes \~ Redlining
+
+-   Multivariate: Health Outcomes \~ Redlining + Covariates
+
+Model 1: Moderation / Interaction model
+
+-   Health Outcomes \~ Redlining \* Gentrification
+
+Model 2: Mediation model
+
+-   Health Outcomes \~ Redlining\
+    Health Outcomes \~ Gentrification\
+    Gentrification \~ Redlining\
+    Health Outcomes \~ Redlining + Gentrification
+
+### Sensitivity Analysis
+
+Replicate models with alternative definitions of Gentrification
+
+------------------------------------------------------------------------
+
+## Discussion
+
+### Implications
+
+### Next Steps
+
+------------------------------------------------------------------------
+
+## Exploratory
+
+### Geography
+
+The Bureau of the Census defines a **place** as a concentration of population; a place may or may not have legally prescribed limits, powers, or functions. This concentration of population must have a name, be locally recognized, and not be part of any other place.
+
+Here, the map shows the overlays between all "City" Places as defined by the Legal/Statistical Area Description ([LSAD](https://www2.census.gov/geo/pdfs/reference/LSADCodes.pdf)) Codes, on top of historically HOLC redlined areas.
+
+Questions:
+
+-   Should all places that intersect with any redlined area be grouped together as the referent geography?
+
+-   Gentrification be considered within
+
+Places + Redlining
+
+```{r, echo = FALSE}
+selectInput(inputId = "state",
+            label = "Choose State",
+            choices = unique(holc$state))
+
+renderUI({
+  cities <- unique(holc[holc$state == input$state, "city"])
+  selectInput(inputId = "city",
+              label = "Select Redlined City",
+              choices = cities)
+})
+
+
+renderTmap({
+
+state_num <- holc_tracts[holc_tracts$state == input$state,]$STATEFP
+  
+  tm_shape(holc_tracts %>%
+             filter(city == input$city)) +
+    tm_polygons(col = "holc_grade_pop") +
+    tm_shape(places %>%
+               filter(`LSAD Description` == "City (suffix)",
+                      STATEFP == state_num)) +
+    tm_borders(col ="blue") +
+    tm_text(text = "NAME")
+})
+
+
+```
+
+Places + Gentrification
+
+### Unplaced Concepts
+
+-   Difficulty operationalizing gentrification - Noted early in 1986 Galster & Peacok in constructing Logistic least-squares using census variables to define gentrification.
+-   [Predicting gentrification using longitudinal census data \| Urban Spatial (urbanspatialanalysis.com)](http://urbanspatialanalysis.com/portfolio/predicting-gentrification-using-longitudinal-census-data/) Predicting
