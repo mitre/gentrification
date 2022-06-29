@@ -1,0 +1,237 @@
+---
+title: "Data Quality"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+theme_set(theme_minimal())
+options(scipen = 999)
+```
+
+# Data Quality Checks
+
+Objectives:
+
+-   Understand how many census tracts are present for all years of data
+
+-   Understand how much data is missing by
+
+    -   Census Tracts
+    -   Year
+    -   State
+
+```{r}
+original_df <- readRDS("outputs/combined.RDS")
+dim(original_df)
+df <- df[!duplicated(df), ]
+dim(df)
+colnames(df)
+```
+
+### Data Missing for PLACES Tracts:
+
+```{r}
+length(unique(df$GEOID))
+length(unique(acs_2019$GEOID))
+length(unique(redlining$GEOID))
+length(unique(ltdb$GEOID))
+
+ltdb %>%
+  select(GEOID) %>%
+  unique() %>%
+  mutate(nchar = nchar(GEOID)) %>%
+  group_by(nchar) %>%
+  count()
+```
+
+```{r}
+df %>%
+  group_by(GEOID) %>%
+  summarize(`Number of NAs in PLACES` = sum(is.na(ARTHRITIS)),
+            `Number of Tracts` = n()) %>%
+  ungroup() %>%
+  group_by(`Number of NAs in PLACES`, `Number of Tracts`) %>%
+  count() %>%
+  mutate(Missing = ifelse(`Number of NAs in PLACES` == 0, "None", "All")) %>%
+  ggplot() +
+  geom_col(aes(x = as.factor(`Number of Tracts`), 
+               y = `n`, 
+               fill = Missing),
+           position = "dodge") + 
+  scale_y_log10() +
+  labs(title = "Number of Tracts without PLACES data",
+       y = "# Tracts (Log 10)", 
+       x = "Tract Frequency") 
+```
+
+```{r}
+df %>%
+  group_by(GEOID) %>%
+  summarize(`Number of NAs in PLACES` = sum(is.na(ARTHRITIS)),
+            `Number of Tracts` = n()) 
+  ungroup() %>%
+  group_by(`Number of NAs in PLACES`, `Number of Tracts`) %>%
+  count() %>%
+  mutate(Missing = ifelse(`Number of NAs in PLACES` == 0, "None", "All"))  %>%
+  ungroup() %>%
+  group_by(Missing) %>%
+  summarise(count = sum(n)) %>%
+  mutate(total = length(unique(df$GEOID)),
+         percent = count / total)
+```
+
+```{r}
+df %>%
+  group_by(GEOID) %>%
+  summarize(`Number of NAs in PLACES` = sum(is.na(ARTHRITIS)),
+            `Number of Tracts` = n()) %>%
+  filter(`Number of NAs in PLACES` > 0)
+  ungroup() %>%
+  group_by(`Number of NAs in PLACES`, `Number of Tracts`) %>%
+  count() %>%
+  mutate(Missing = ifelse(`Number of NAs in PLACES` == 0, "None", "All")) %>%
+  filter(Missing == "All")
+```
+
+**Slightly less than half the tracts are missing PLACES data.**
+
+```{r}
+missing_tracts <- df %>%
+  group_by(GEOID) %>%
+  summarize(`Number of NAs in PLACES` = sum(is.na(ARTHRITIS))) %>%
+  filter(`Number of NAs in PLACES` > 0)
+
+df %>%
+  filter(GEOID %in% missing_tracts$GEOID) %>%
+  group_by(STATE, YEAR) %>%
+  count()
+```
+
+## Data Missing Across Years
+
+```{r}
+# Number of Tracts each decade
+df %>%
+  select(YEAR, GEOID) %>%
+  group_by(YEAR) %>%
+  count() %>%
+  ggplot(aes(x = as.factor(YEAR), y = n, fill = as.factor(YEAR))) +
+  geom_col(show.legend = F) +
+  labs(x = "Year", y = "", title = "Number of Census Tracts by Year")
+```
+
+PLACES data missing across years
+
+```{r}
+df %>%
+  select(YEAR, GEOID) %>%
+  group_by(YEAR) %>% 
+  mutate(missing = ifelse(GEOID %in% missing_tracts$GEOID, TRUE, FALSE)) %>%
+  group_by(YEAR, missing) %>%
+  count() %>%
+  ggplot(aes(x = YEAR, y = n, fill = missing)) +
+  geom_col() +
+  labs(y = "# of CTs",
+       x = "Year",
+       fill = "PLACES data missing?") +
+  theme(legend.position = "top")
+```
+
+## Redlining data intersection
+
+```{r}
+ltdb %>%
+  select(GEOID, YEAR) %>%
+  unique() %>%
+  mutate(redlining = ifelse(GEOID %in% redlining$GEOID, TRUE, FALSE),
+         places = ifelse(GEOID %in% places$TractFIPS, TRUE, FALSE)) %>%
+  group_by(YEAR, redlining, places) %>%
+  count() %>%
+  ggplot(aes(x = YEAR, y = n, fill = redlining, alpha = places)) +
+  geom_col(position = "dodge", 
+           aes(color = places)) 
+
+
+```
+
+```{r}
+need_to_clean <- df %>%
+  select(YEAR, GEOID) %>%
+  group_by(YEAR, GEOID) %>%
+  count() %>% filter(n>1)
+
+df %>% select(1:4) %>%
+  filter(GEOID %in% need_to_clean$GEOID) %>%
+  group_by(STATE, COUNTY, YEAR) %>% 
+  count()
+```
+
+## Redlining Data - Duplicated Tracts in Multiple Cities
+
+-   Temporarily corrected by averaging the HOLC grades for tracts with multiple values and removing NAs
+
+```{r}
+# Reading in Redlining Data
+redlining <- read.csv("raw data/All_Population_Weighted_HOLC_Grades_pt2_Threshold.csv")
+
+# Identifying tracts with GEOIDs recurring more than once
+duplicates <- redlining %>%
+  group_by(GEOID) %>%
+  count() %>%
+  filter(n > 1)
+
+# Subsetting redlining data based on identified IDs
+duplicates_all <- redlining %>%
+  filter(GEOID %in% duplicates$GEOID)
+```
+
+### Duplicated Redlining Tracts Visualizations
+
+```{r}
+duplicates_all %>%
+  group_by(city, state) %>%
+  summarize(NAs = sum(is.na(holc_grade_pop)),
+            `Total CTs` = n()) %>%
+  pivot_longer(names_to = "Type", values_to = "Count", cols = c(NAs, `Total CTs`)) %>%
+  
+  ggplot(aes(x = reorder(city,Count), y = Count)) +
+  geom_col(aes(fill = state, color = Type), 
+           alpha = 0.4,
+           position = "identity") +
+  scale_color_manual(values = c("black", rgb(0,0,0,0)))+
+  coord_flip() +
+  labs(x = "# of CTs", y = "City", title = "Duplicated CTs")
+
+
+duplicates_all %>%
+  group_by(city, state) %>%
+  summarize(NAs = sum(is.na(holc_grade_pop)),
+            `Total CTs` = n()) %>%
+  ungroup() %>%
+  group_by(state) %>%
+  summarize(NAs = sum(NAs),
+            Total = sum(`Total CTs`))
+
+
+duplicates_all %>%
+  group_by(GEOID) %>%
+  summarize(NAs = sum(is.na(holc_grade_pop)),
+            `Total CTs` = n()) %>%
+  ungroup() %>%
+  group_by(NAs, `Total CTs`) %>%
+  count() %>%
+  ggplot(aes(x = `Total CTs`, y = n, group = NAs)) +
+  geom_col(aes(fill = as.factor(NAs)), position = "dodge") +
+  geom_text(aes(label = n), 
+            position = position_dodge(width = 1), size = 3
+            ) +
+  labs(fill = "Number of NAs",
+       x = "Number of Duplicated Tracts",
+       y = "") +
+  theme(axis.text.y = element_blank(),
+        legend.position = "top")
+
+```

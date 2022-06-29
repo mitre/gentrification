@@ -38,6 +38,11 @@ cname_map <- tibble(
   "HINCH" = "Median Household Income, Hispanic",
   "HINCA" = "Median Household Income, Asian/PI",
   
+  "PWHITE" = "Percent White",
+  "PNHWHT" = "Percent Non-Hispanic White",
+  "PBLACK" = "Percent Black",
+  "PNHBLK" = "Percent Non-Hispanic Black",
+  
   "INCPC" = "Per Capita Income",
   "PPOV" = "Percent in Poverty, Total",
   "PBPOV" = "Percent in Poverty, Black",
@@ -49,9 +54,11 @@ cname_map <- tibble(
   "POWN" = "Percent Owner-Occupied Units",
   "PVAC" = "Percent Vacant Units",
 
-  
   "MRENT" = "Median Rent",
   "MHMVAL" = "Median Home Value",
+  
+  "P30OLD" = "Percent Structures more than 30 years old",
+  "P10YRS" = "Households in neighborhood 10 years or less",
   
   "PHS" = "Percent with High School Degree or Less",
   "PCOL" = "Percent with 4-year College Degree or More",
@@ -68,16 +75,12 @@ ltdb_combined <- ltdb_combined %>%
 clean_ids <- function(data){
 
   data %>%
-<<<<<<< HEAD
+
   # Convert State, County, and Tract individual IDs to characters and remove NAs
   mutate_at(c("STATEA", "COUNTYA", "TRACTA"), as.character) %>%
   filter_at(c("STATEA", "COUNTYA", "TRACTA"), all_vars(!is.na(.))) %>%
   
   # Remove trailing 0s in the code  
-=======
-  mutate_at(c("STATEA", "COUNTYA", "TRACTA"), as.character) %>%
-  filter_at(c("STATEA", "COUNTYA", "TRACTA"), is.na) %>%
->>>>>>> efbbcadddff9e399d21f6c162a52b9d037c58298
   mutate(STATEA = substr(STATEA, 1,2),
           COUNTYA = substr(COUNTYA, 1,3),
           TRACTA = str_pad(TRACTA, width = 6, side = "left", pad = "0"),
@@ -103,7 +106,10 @@ ltdb_combined <- ltdb_combined %>%
   clean_ids() %>%
   left_join(state_names, by = "STATEA", suffix = c("_old", "")) %>%
   left_join(county_names, by = c("STATEA", "COUNTYA"), suffix = c("_old", "")) %>%
-  select(YEAR, STATE, COUNTY, GEOID, cname_map$readable)
+  select(YEAR, STATE, COUNTY, GEOID, cname_map$readable) %>%
+  mutate(`Percent Non-Hispanic White` = ifelse(is.na(`Percent White`), `Percent Non-Hispanic White`, `Percent White`),
+         `Percent Non-Hispanic Black` = ifelse(is.na(`Percent Black`), `Percent Non-Hispanic Black`, `Percent Black`)) %>%
+  select(-`Percent White`, - `Percent Black`)
 ltdb_combined$YEAR = as.numeric(ltdb_combined$YEAR)
 ltdb_combined$COUNTY = tools::toTitleCase(as.character(ltdb_combined$COUNTY))
 
