@@ -1,0 +1,814 @@
+---
+title: "Census-Based Gentrification Methods"
+output: 
+  html_notebook: 
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    css:  "www/app.css"
+runtime: shiny
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(tmap)
+library(tigris)
+library(sf)
+library(MITREShiny)
+library(DT)
+library(plotly)
+library(rgdal)
+
+tracts <- readRDS("outputs/geo_tracts.RDS")
+st_crs(tracts) = 4326
+
+indicators <- readRDS("outputs/indicators.RDS") %>%
+  mutate(STATE_FIP = substr(GEOID, 1,2),
+         COUNTY_FIP = substr(GEOID, 3,5)) 
+outcomes <- readRDS("outputs/outcomes.RDS")
+
+holc_colors <- c(
+  "A" = "#759e64", # green
+  "B" = "#75a3b6", # blue
+  "C" = "#c5c473", # yellow
+  "D" = "#c27e8d" # red
+)
+
+gent_colors <- c(
+  "#D0E1D4",  "#0C6291", "#C05746" 
+)
+fipsnames_cw <- unique(indicators[,c("STATE", "COUNTY", "STATE_FIP", "COUNTY_FIP")])
+
+theme_set(theme_minimal()) +
+  theme(plot.title = element_text(hjust=0.5),
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+# Introduction
+
+The purpose of this document is to help users understand how the measures and indicators used in census-based gentrification affect which areas are classified as gentrified. In even as early as 1986, George Galster & Stephen Peacock reported "great sensitivity in the number and location of gentrified tracts to the definition chosen and stringency applied", when examining areal changes in Philadelphia between 1970 - 1980. [@galster1986] This definition explorer document hopes to visualize and elucidate some of those sensitivities.
+
+Census-based gentrification definitions have often been used as a quantitative, quick way approximate the difficult concept of gentrification.
+
+However, this has been little consensus among researchers in defining gentrification, much less in operationalizing the definition. In a systematic review of gentrification definitions used in epidemiologic research, 18 different indicators were used to capture and measure gentrification including Median Household Income, Education, Rent, Race, Home Value, Poverty, etc. [@Bhavsar2020]
+
+Two common concepts are used in defining gentrification.
+
+1.  Neighborhoods are **eligible** to be gentrified.
+2.  Neighborhoods that meet threshold criteria are **determined** to be gentrified.
+
+Indicators can be used to define eligibility, determination, or both.
+
+In addition to areal indicators, time period of evaluation and reference geographic region are also important decisions which may impact the quantification of tracts as gentrified:
+
+# Explore Indicators
+
+```{r data_prep, echo=FALSE, message=FALSE}
+# Additional Data prep to reduce processing later on
+data <- indicators %>%
+    select(GEOID, YEAR, STATE, COUNTY, `Total Pop`,
+           `Median Rent`, 
+           `Median Household Income`,
+           `Percent with 4-year College Degree or More`, 
+           `Median Home Value`,
+           `Percent Above Poverty`,
+           `Percent Non-Hispanic White`,
+           `Percent Structures more than 30 years old`,
+           `Households in neighborhood 10 years or less`) %>%
+  gather(key = "Measure", value = "Value", -YEAR, -STATE, -COUNTY, -GEOID, -`Total Pop`) %>% 
+  group_by(YEAR, STATE, COUNTY, Measure) %>%
+  mutate(Rank = percent_rank(Value)) %>%
+  ungroup()
+
+# Generates scatter plot for all the measure functions used in the Explore Indicators Section
+#'
+#' @param data dataframe with columns `Rank Start`, `Rank End`, `Total Pop End` and `Label`
+#' @return ggplot with defined aesthetics and geoms based on selected measure input `input$measure`
+
+plot_measure_scatter <- function(data){
+  plot <- data %>%
+   ggplot(aes(x = `Rank Start`, y = `Rank End`)) +
+      geom_point(aes(size = `Total Pop End`, color = Label), alpha = 0.7) +
+      scale_color_manual(values = gent_colors) +
+      theme(aspect.ratio = 1,
+            legend.position = "bottom") +
+    labs(title = paste(input$measure))
+  
+  return(plot)
+}
+
+
+#' Processes data to add categorical gentrification labels based on threshold inputs
+#'
+#' @param data dataframe with columns `Rank Start` and `Rank End`
+#' @param input_eligibility User Defined input to determine the eligibility threshold
+#' @param input_determination User Defined input to determine the determination threshold 
+#' @return labelled datasframe with additional column `Label`
+
+add_gentrification_label <- function(data, input_eligibility, input_determination){
+  labelled <- data %>%
+    mutate(Label = case_when(`Rank Start` > input_eligibility ~ "Not Eligible",
+                             `Rank Start` <= input_eligibility & 
+                               `Rank End` <= input_determination ~ "Still Susceptible",
+                             `Rank Start` <= input_eligibility & 
+                               `Rank End` > input_determination ~ "Positive Indicator"))
+  return(labelled)
+}
+```
+
+```{r core-explore, echo=FALSE, message=FALSE,}
+# Input panel to select Year, State, County, and Measure
+inputPanel(
+    sliderInput("range", 
+                label = "Select Year Range:",
+                min = 1970, max = 2020, 
+                value = c(2000, 2020), 
+                step = 10, sep = ""),
+    
+    selectInput("state", 
+                label = "Choose a State:",
+                choices = sort(unique(data$STATE)), 
+                selected = "Oregon"),
+    
+    renderUI({
+      counties <- unique(data[data$STATE == input$state, "COUNTY"])
+      selectInput("county", 
+                  label = "Choose a County:",
+                  choices = counties, 
+                  selected = "Multnomah")
+    }),
+    
+    selectInput("measure", 
+                label = "Choose a Measure to Explore:",
+                choices = unique(data$Measure),
+                selected = "Median Household Income"
+                )
+  )
+
+
+start <- reactive({
+  data %>%
+    filter(YEAR == input$range[1],
+           STATE == input$state,
+           COUNTY == input$county)
+})
+
+end <- reactive({
+  data %>%
+    filter(YEAR == input$range[2],
+           STATE == input$state,
+           COUNTY == input$county)
+})
+
+start_end <- reactive({
+  inner_join(start(), end(),
+               by = c("GEOID", "STATE", "COUNTY", "Measure"),
+               suffix = c(" Start", " End")
+    )
+})
+
+fips <- reactive({fipsnames_cw[fipsnames_cw$STATE == input$state & 
+                             fipsnames_cw$COUNTY == input$county,]
+    })
+    
+
+# Histogram + density plot to explore distribution of measures
+splitLayout(
+  
+  renderPlot({
+    data %>%
+      filter(YEAR %in% input$range,
+             STATE == input$state,
+             COUNTY == input$county,
+             Measure == input$measure) %>%
+      ggplot(aes(x = Value)) +
+      geom_histogram(aes(y = ..density..,
+                         fill = as.factor(YEAR)),
+                     alpha = 0.4, position = "dodge") + 
+      geom_density(aes(color = as.factor(YEAR)), show.legend = FALSE) +
+      labs(fill = "Year",
+           y = "# of Tracts",
+           title = paste(input$measure)) +
+      theme(legend.position = "bottom",
+            aspect.ratio = 1) 
+
+  }),
+  
+  renderPlot({
+    start_end() %>%
+      filter(Measure == input$measure) %>%
+      ggplot(aes(x = `Value Start`, y = `Value End`)) +
+      geom_point(aes(size = `Total Pop End`),
+                 alpha = 0.3) +
+      geom_abline(slope = 1, intercept = 0, lty = "dotted", color = "gray") +
+      theme(aspect.ratio = 1,
+            legend.position = "bottom") +
+      labs(title = paste(input$measure))
+  })
+)
+
+```
+
+# Define Indicators {.tabset}
+
+Select the thresholds for each potential measure to define the eligibility and determination thresholds relative relative to the surrounding tracts in the county.
+
+The selected thresholds will persist throughout the rest of the document.
+
+-   Eligibility threshold characterizes which set of tracts can be considered candidates for gentrification.
+-   Determination thresholds characterize what change is significant to capture neighborhood change.
+
+## Median House Income
+
+```{r mhi, echo=FALSE}
+# Input panel information
+inputPanel(
+    sliderInput("eligibility_mhi", "Select Elgibility Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1), 
+    
+    sliderInput("determination_mhi", "Select Determination Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1)
+  )
+
+
+# Generate MHI data set
+mhi <- reactive({
+  start_end() %>%
+    filter(Measure == "Median Household Income") %>%
+    add_gentrification_label(input_eligibility = input$eligibility_mhi, 
+                             input_determination = input$determination_mhi)
+})
+
+tract_mhi <- reactive({tracts %>%
+        filter(STATEFP == fips()$STATE_FIP,
+               COUNTYFP == fips()$COUNTY_FIP) %>%
+        merge(.,mhi(), by = "GEOID")
+      })
+
+# Output
+splitLayout(
+  renderPlot({
+    mhi() %>%
+      plot_measure_scatter() 
+  }),
+  
+   renderTmap({
+        
+        tm_shape(tract_mhi()) +
+          tm_polygons(col = "Label", 
+                      palette = gent_colors,
+                      alpha = 0.4)
+      })
+)
+```
+
+## Median Rent
+
+```{r rent, echo=FALSE}
+inputPanel(
+    sliderInput("eligibility_rent", "Select Elgibility Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1), 
+    
+    sliderInput("determination_rent", "Select Determination Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1)
+  )
+
+# Generate MHI data set
+rent <- reactive({
+  start_end() %>%
+    filter(Measure == "Median Rent") %>%
+    add_gentrification_label(input_eligibility = input$eligibility_rent,
+                             input_determination = input$determination_rent)
+})
+
+tract_rent <- reactive({tracts %>%
+        filter(STATEFP == fips()$STATE_FIP,
+               COUNTYFP == fips()$COUNTY_FIP) %>%
+        merge(.,rent(), by = "GEOID")
+      })
+
+# Output
+splitLayout(
+  renderPlot({
+    rent() %>%
+      plot_measure_scatter()
+  }),
+  
+   renderTmap({
+        
+        tm_shape(tract_rent()) +
+          tm_polygons(col = "Label", 
+                      palette = gent_colors,
+                      alpha = 0.4)
+      })
+)
+```
+
+## Higher Education
+
+```{r edu, echo=FALSE}
+inputPanel(
+    sliderInput("eligibility_edu", "Select Elgibility Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1), 
+    
+    sliderInput("determination_edu", "Select Determination Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1)
+  )
+
+# Generate MHI data set
+edu <- reactive({
+  start_end() %>%
+    filter(Measure == "Median Household Income") %>%
+    add_gentrification_label(input_eligibility = input$eligibility_edu,
+                             input_determination = input$determination_edu)
+})
+
+tract_edu <- reactive({tracts %>%
+        filter(STATEFP == fips()$STATE_FIP,
+               COUNTYFP == fips()$COUNTY_FIP) %>%
+        merge(.,edu(), by = "GEOID")
+      })
+
+# Output
+splitLayout(
+  renderPlot({
+    edu() %>%
+      plot_measure_scatter()
+  }),
+  
+   renderTmap({
+        tm_shape(tract_edu()) +
+          tm_polygons(col = "Label", 
+                      palette = gent_colors,
+                      alpha = 0.4)
+      })
+)
+```
+
+## Median Home Value
+
+```{r mhv, echo=FALSE}
+inputPanel(
+    sliderInput("eligibility_mhv", "Select Elgibility Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1), 
+    
+    sliderInput("determination_mhv", "Select Determination Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1)
+  )
+
+
+# Generate MHI data set
+mhv <- reactive({
+  start_end() %>%
+    filter(Measure == "Median Home Value") %>%
+    add_gentrification_label(input_eligibility = input$eligibility_mhv,
+                             input_determination = input$determination_mhv)
+})
+
+tract_mhv <- reactive({tracts %>%
+        filter(STATEFP == fips()$STATE_FIP,
+               COUNTYFP == fips()$COUNTY_FIP) %>%
+        merge(.,mhv(), by = "GEOID")
+      })
+
+# Output
+splitLayout(
+  renderPlot({
+    mhv() %>%
+      plot_measure_scatter()
+  }),
+  
+   renderTmap({
+        tm_shape(tract_mhv()) +
+          tm_polygons(col = "Label", 
+                      palette = gent_colors,
+                      alpha = 0.4)
+      })
+)
+```
+
+## Percent Non-Hispanic White
+
+```{r nhw, echo=FALSE}
+inputPanel(
+    sliderInput("eligibility_nhw", "Select Elgibility Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1), 
+    
+    sliderInput("determination_nhw", "Select Determination Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1)
+  )
+
+# Generate NHW data set
+nhw <- reactive({
+  start_end() %>%
+    filter(Measure == "Percent Non-Hispanic White") %>%
+    add_gentrification_label(input_eligibility = input$eligibility_edu,
+                             input_determination = input$determination_edu)
+})
+
+tract_edu <- reactive({tracts %>%
+        filter(STATEFP == fips()$STATE_FIP,
+               COUNTYFP == fips()$COUNTY_FIP) %>%
+        merge(.,edu(), by = "GEOID")
+      })
+
+# Output
+splitLayout(
+  renderPlot({
+    edu() %>%
+      plot_measure_scatter()
+  }),
+  
+   renderTmap({
+        tm_shape(tract_edu()) +
+          tm_polygons(col = "Label", 
+                      palette = gent_colors,
+                      alpha = 0.4)
+      })
+)
+```
+
+## Housing Structure Age
+
+```{r hsa, echo=FALSE}
+inputPanel(
+    sliderInput("eligibility_hsa", "Select Elgibility Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1), 
+    
+    sliderInput("determination_hsa", "Select Determination Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1)
+  )
+
+# Generate NHW data set
+hsa <- reactive({
+  start_end() %>%
+    filter(Measure == "Percent Structures more than 30 years old") %>%
+    add_gentrification_label(input_eligibility = input$eligibility_hsa,
+                             input_determination = input$determination_hsa)
+})
+
+tract_hsa <- reactive({tracts %>%
+        filter(STATEFP == fips()$STATE_FIP,
+               COUNTYFP == fips()$COUNTY_FIP) %>%
+        merge(.,hsa(), by = "GEOID")
+      })
+
+# Output
+splitLayout(
+  renderPlot({
+    hsa() %>%
+      plot_measure_scatter()
+  }),
+  
+   renderTmap({
+        tm_shape(tract_hsa()) +
+          tm_polygons(col = "Label", 
+                      palette = gent_colors,
+                      alpha = 0.4)
+      })
+)
+```
+
+## Household Tenure
+
+```{r ten, echo=FALSE}
+inputPanel(
+    sliderInput("eligibility_ten", "Select Elgibility Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1), 
+    
+    sliderInput("determination_ten", "Select Determination Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1)
+  )
+
+# Generate tenure data set
+ten <- reactive({
+  start_end() %>%
+    filter(Measure == "Households in neighborhood 10 years or less") %>%
+    add_gentrification_label(input_eligibility = input$eligibility_ten,
+                             input_determination = input$determination_ten)
+})
+
+tract_ten <- reactive({tracts %>%
+        filter(STATEFP == fips()$STATE_FIP,
+               COUNTYFP == fips()$COUNTY_FIP) %>%
+        merge(.,ten(), by = "GEOID")
+      })
+
+# Output
+splitLayout(
+  renderPlot({
+    ten() %>%
+      plot_measure_scatter()
+  }),
+  
+   renderTmap({
+        tm_shape(tract_ten()) +
+          tm_polygons(col = "Label", 
+                      palette = gent_colors,
+                      alpha = 0.4)
+      })
+)
+```
+
+## Percent Above FPL
+
+```{r fpl, echo=FALSE}
+inputPanel(
+    sliderInput("eligibility_pov", "Select Elgibility Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1), 
+    
+    sliderInput("determination_pov", "Select Determination Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.1)
+  )
+
+# Generate tenure data set
+pov <- reactive({
+  start_end() %>%
+    filter(Measure == "Percent Above Poverty") %>%
+    add_gentrification_label(input_eligibility = input$eligibility_pov,
+                             input_determination = input$determination_pov)
+})
+
+tract_pov <- reactive({tracts %>%
+        filter(STATEFP == fips()$STATE_FIP,
+               COUNTYFP == fips()$COUNTY_FIP) %>%
+        merge(.,pov(), by = "GEOID")
+      })
+
+# Output
+splitLayout(
+  renderPlot({
+    pov() %>%
+      plot_measure_scatter()
+  }),
+  
+   renderTmap({
+        tm_shape(tract_pov()) +
+          tm_polygons(col = "Label", 
+                      palette = gent_colors,
+                      alpha = 0.4)
+      })
+) 
+```
+
+# Select Indicators
+
+Selection of indicators should be guided by local expertise in identifying the relevant indicators of gentrification within that community.
+
+Based on the @Bhavsar2020 paper, the following were the most commonly used indicators across 24 papers examined in a recent literature review.
+
+| Indicator Type                       | N = 24 (%) |
+|:-------------------------------------|:-----------|
+| Median Household income              | 17 (70.8%) |
+| Education                            | 17 (70.8%) |
+| Rent                                 | 12 (50%)   |
+| Home Value                           | 6 (25%)    |
+| Race                                 | 6 (25%)    |
+| Poverty                              | 4 (16.7%)  |
+| Housing Stock Age                    | 3 (12.5%)  |
+| Composite Measure (SEIFA, IMD, NCGS) | 3 (12.5%)  |
+| Immigrant Population %               | 2 (8.4%)   |
+| Occupation                           | 2 (8.4%)   |
+| Residential Mobility                 | 2 (8.4%)   |
+
+Some additional measures used (though only appearing once among the reviewed literature) included Non-family households, Owner Occupied, Unemployment, Dollar Amount for Improvement Loans, and Mean Dollar Amount of Home Loans.
+
+Our tool defaults to the top 3 most frequently used indicators of gentrification, but includes the top 7 most commonly used indicators.
+
+```{r, echo = FALSE}
+
+
+  checkboxGroupInput("measures",
+                     label = "Select which measures you would like to include in your gentrification definition:",
+                     choices = unique(data$Measure),
+                     selected = unique(data$Measure)[1:3])
+
+
+
+add_gentrification_label_full <- function(data, measure, input_eligibility, input_determination){
+  data %>%
+    mutate(Label = case_when(Measure == measure & `Rank Start` > input_eligibility ~ "Not Eligible",
+                             Measure == measure & `Rank Start` <= input_eligibility & 
+                               `Rank End` <= input_determination ~ "Still Susceptible",
+                             Measure == measure & `Rank Start` <= input_eligibility & 
+                               `Rank End` > input_determination ~ "Positive Indicator",
+                             Measure != measure ~ Label))
+}
+
+start_end_labelled <- reactive({
+  start_end() %>%
+    mutate(Label = "")%>%
+    add_gentrification_label_full("Median Rent", 
+                                  input$eligibility_rent, 
+                                  input$determination_rent) %>%
+    add_gentrification_label_full("Median Household Income", 
+                                  input$eligibility_mhi, 
+                                  input$determination_mhi ) %>%
+    add_gentrification_label_full("Percent with 4-year College Degree or More",
+                                  input$eligibility_edu, 
+                                  input$determination_edu) %>%
+    add_gentrification_label_full("Median Home Value",
+                                  input$eligibility_mhv, 
+                                  input$determination_mhv) %>%
+    add_gentrification_label_full("Percent Above Poverty",
+                                  input$eligibility_pov, 
+                                  input$determination_pov) %>%
+    add_gentrification_label_full("Percent Non-Hispanic White",
+                                  input$eligibility_nhw, 
+                                  input$determination_nhw) %>%
+    add_gentrification_label_full("Percent Structures more than 30 years old",
+                                  input$eligibility_hsa, 
+                                  input$determination_hsa) %>%
+    add_gentrification_label_full("Households in neighborhood 10 years or less",
+                                  input$eligibility_ten, 
+                                  input$determination_ten) %>%
+    filter(Measure %in% input$measures) %>%
+    select(GEOID, STATE, COUNTY, Measure, Label) %>%
+    spread(key = "Measure", value = "Label")
+})
+
+measures <- reactive({
+  start_end_labelled() %>%
+    mutate(`Positive Indicator` = as.integer(rowSums(. == "Positive Indicator")),
+           `Not Eligible` = as.integer(rowSums(. == "Not Eligible")),
+           `Still Susceptible` = as.integer(rowSums(. == "Still Susceptible")))
+})
+
+
+tract_measures <- reactive({tracts %>%
+        filter(STATEFP == fips()$STATE_FIP,
+               COUNTYFP == fips()$COUNTY_FIP) %>%
+        merge(.,measures(), by = "GEOID")
+      })
+
+renderTmap({
+  tm_shape(tract_measures()) +
+    tm_polygons(col = "Still Susceptible",
+                alpha = 0.5,
+                palette = c("#FFFFFF", gent_colors[3]),
+                legend.format = list(digits = 0)
+                ) +
+    tm_shape(tract_measures()) +
+    tm_polygons(col = "Positive Indicator",
+                alpha = 0.5,
+                palette = c("#FFFFFF", gent_colors[2]),
+                legend.format = list(digits = 0),
+                popup.vars = c("Positive Indicator",
+                               "Still Susceptible",
+                               "Not Eligible"),
+                popup.format = list(digits = 0))
+      }) 
+
+renderDataTable(
+  datatable({
+    measures()
+  },
+  extensions = 'Buttons',
+     options = list(
+       dom = 'lBtip',
+       buttons = c('copy', 'excel', 'csv'),
+       pageLength = 10,
+       lengthMenu = list(c(10,25,50,-1),
+                         c('10', '25', '50', 'All'))
+     ),
+     class = "display"
+  )
+)
+# 
+
+
+```
+
+# Compare Results
+
+Given the selected measures and thresholds to mark gentrification, this tool allows for comparisons with selected health outcomes.
+
+The health outcomes data come from the [U. S. Small-area Life Expectancy Estimates Project (USALEEP)](https://www.cdc.gov/nchs/nvss/usaleep/usaleep.html), and from CDC's [PLACES: Local Data for Better Health](https://chronicdata.cdc.gov/browse?category=500+Cities+%26+Places&sortBy=newest&utf8).
+
+To use this section, select a health outcome of interest from the drop-down list. The following visuals will display a map colored by the number and type of gentrification indicators, with bubbles representing the prevalence of the the selected health outcome.
+
+The violin plots below show the relationship between the prevalence distribution and the number of Positive Gentrification Indicators (left) and the number of Still Eligible Gentrification Indicator (right).
+
+```{r, echo = FALSE}
+outcomes <- outcomes %>%
+  select(GEOID, `Life Expectancy`,
+         BINGE, CSMOKING, BPHIGH, CANCER, CASTHMA, DIABETES, HIGHCHOL, MHLTH, PHLTH, LPA, SLEEP, ACCESS2, DENTAL) %>%
+  unique()
+
+colnames(outcomes) <- c("GEOID",
+                        "Life Expectancy",
+                        "Binge Drinking",
+                        "Current Smoker",
+                        "High Blood Pressure",
+                        "Cancer",
+                        "Asthma",
+                        "Diabetes",
+                        "High Cholesterol",
+                        "Poor Mental Health",
+                        "Poor Physical Health",
+                        "Limited Physical Activity",
+                        "Insufficient Sleep",
+                        "Uninsured",
+                        "Dental Visits")
+
+outcomes <- outcomes %>%
+  gather(key = "Health Outcomes",
+         value = "Prevalence",
+         -GEOID, na.rm = TRUE)
+
+
+inputPanel(
+    selectInput("brfss", 
+                label = "Choose a Health Outcome to Explore:",
+                choices = unique(outcomes$`Health Outcomes`),
+                selected = "Binge Drinking"
+                )
+  )
+
+outcomes_measures <- reactive({
+  measures() %>%
+    left_join(outcomes, by = "GEOID") %>%
+    filter(`Health Outcomes` == input$brfss)
+})
+
+tracts_outcomes_measures <- reactive({
+  tracts %>%
+        filter(STATEFP == fips()$STATE_FIP,
+               COUNTYFP == fips()$COUNTY_FIP) %>%
+        merge(.,outcomes_measures(), by = "GEOID")
+
+})
+
+renderTmap({
+
+  tm_shape(tract_measures()) +
+    tm_polygons(col = "Still Susceptible",
+                alpha = 0.5,
+                palette = c("#FFFFFF", gent_colors[3]),
+                legend.format = list(digits = 0)
+                ) +
+    tm_shape(tract_measures()) +
+    tm_polygons(col = "Positive Indicator",
+                alpha = 0.5,
+                palette = c("#FFFFFF", gent_colors[2]),
+                legend.format = list(digits = 0),
+                popup.vars = c("Positive Indicator",
+                               "Still Susceptible",
+                               "Not Eligible"),
+                popup.format = list(digits = 0)) +
+    tm_shape(tracts_outcomes_measures()) +
+    tm_bubbles(col = "Prevalence",
+               size = "Prevalence",
+               palette = "Greens",
+               alpha = 0.5,
+               scale = 0.5)
+})
+
+splitLayout(
+  renderPlot({
+    
+    counts <- outcomes_measures() %>%
+      group_by(`Positive Indicator`) %>%
+      summarize(n = n(),
+                Prevalence = mean(Prevalence, na.rm = T))
+    
+    outcomes_measures() %>%
+      ggplot(aes(y = Prevalence, 
+                 x = factor(`Positive Indicator`))) +
+      geom_violin(aes(fill = factor(`Positive Indicator`)),
+                  alpha = 0.6, 
+                  color = "white",
+                  show.legend = FALSE) +
+      geom_text(data = counts, aes(label = n)) +
+      labs(x = "Number of Positive Indicators of Gentrification",
+           y = paste("Prevalence"),
+           title = paste(input$brfss, "by # of Gentrification Indicators"))
+  }),
+  
+  renderPlot({
+    
+    counts <- outcomes_measures() %>%
+      group_by(`Still Susceptible`) %>%
+      summarize(n = n(),
+                Prevalence = mean(Prevalence, na.rm = T))
+    
+    outcomes_measures() %>%
+      ggplot(aes(y = Prevalence,
+                 x = factor(`Still Susceptible`))) +
+      geom_violin(aes(fill = factor(`Still Susceptible`)),
+                  alpha = 0.6, 
+                  color = "white",
+                  show.legend = FALSE) +
+      geom_text(data = counts, aes(label = n)) +
+      labs(x = "Number of Still Susceptible Indicators of Gentrification",
+           y = paste("Prevalence"),
+           title = paste(input$brfss, "by # of Susceptibility Indicators"))
+  })
+)
+
+```

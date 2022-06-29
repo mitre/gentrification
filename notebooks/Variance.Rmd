@@ -1,0 +1,290 @@
+---
+title: "Variance Exploration"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+
+library(readxl)
+
+theme_set(theme_minimal())
+options(scipen = 999)
+
+places_2020 <- read.csv("raw data/PLACES__Census_Tract_Data__GIS_Friendly_Format___2020_release.csv")
+
+# 500 Cities data w/ Mental Health outcomes
+cities_2019 <- read.csv("raw data/500_Cities__Local_Data_for_Better_Health__2019_release.csv")
+cities_2018 <- read.csv("raw data/500_Cities__Local_Data_for_Better_Health__2018_release.csv")
+cities_2017 <- read.csv("raw data/500_Cities__Local_Data_for_Better_Health__2017_release.csv")
+cities_2017 <- cities_2017 %>%
+  rename("PopulationCount" = "Population2010")
+
+# Urban Displacement Project classifications of gentrification
+udp <- read_xlsx("raw data/udp_data_spreadsheet_updated11062017.xlsx", sheet = 2)
+```
+
+# Objectives
+
+-   Explore the confidence interval ranges for self-reported Poor Mental Health (as defined by "Mental health not good for \>=14 days among adults aged \>=18 Years")
+
+-   Explore census tracts ranges throughout time
+
+-   Use Urban Displacement Project (UDP) and Lisa Bates characterizations of gentrification for preliminary analysis
+
+## Functions
+
+```{r}
+# Returns data set at tract level with mental health prevalence
+process_500cities <- function(data){
+  data %>%
+  filter(!is.na(TractFIPS),
+         Measure == "Mental health not good for >=14 days among adults aged >=18 Years") %>%
+  mutate(conf_int_range = High_Confidence_Limit - Low_Confidence_Limit,
+         PopulationCount_k = PopulationCount/1000)
+}
+
+# Plots Range in CI
+plot_range_by_pop <- function(data){
+  year <- parse_number(deparse(substitute(data)))
+  
+  data %>%
+  process_500cities() %>%
+  ggplot(aes(x = PopulationCount, y = conf_int_range, color = Data_Value)) +
+  scale_color_binned(type = "viridis") +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", color = "black", size = 0.6, se = T, na.rm = T, ) + 
+  scale_x_log10() +
+  ylim(0, 12.5) +
+  labs(x = "Population Count (log scale)",
+       y = "Confidence Interval Range",
+       color = "Poor Mental Health Prevalence",
+       title = paste("500 Cities Data -", year)) +
+  theme(legend.position = "bottom")
+}
+
+# Plots range in Confidence intervals by Poor MH Prevalence
+plot_range_by_prev <- function(data){
+  year <- parse_number(deparse(substitute(data)))
+
+  data %>%
+    process_500cities() %>%
+  ggplot(aes(y = conf_int_range, x = Data_Value)) +
+  geom_point(aes(color = log(PopulationCount)),alpha = 0.2) +
+  geom_smooth(method = "lm", color = "black", size = 0.6, se = T, na.rm = T, ) + 
+  scale_color_binned(type = "viridis") +
+  ylim(0,12.5) +
+    xlim(0,40) +
+  labs(size = "Population Count",
+       y = "Confidence Interval Range",
+       x = "Poor Mental Health Prevalence",
+       title = paste("500 Cities Data -", year)) +
+
+  theme(legend.position = "bottom")
+}
+
+
+```
+
+## Single Year Plots of Variance Predictors
+
+```{r}
+plot_range_by_pop(cities_2017)
+plot_range_by_pop(cities_2018)
+plot_range_by_pop(cities_2019)
+```
+
+```{r}
+plot_range_by_prev(cities_2017)
+plot_range_by_prev(cities_2018)
+plot_range_by_prev(cities_2019)
+
+```
+
+# Trend Analysis
+
+```{r}
+# Creating a smaller combined dataset of 500 Cities Data
+subset_500 <- function(data){
+  data %>%
+    process_500cities() %>%
+    select(Year, TractFIPS, StateAbbr, CityName, Data_Value, Low_Confidence_Limit, High_Confidence_Limit, PopulationCount)
+}
+
+subset_17 <- subset_500(cities_2017)
+subset_18 <- subset_500(cities_2018)
+subset_19 <- subset_500(cities_2019)
+
+combined <- bind_rows(subset_17, subset_18, subset_19)
+
+# Creating additional columns for Bates and UDP Typology, Range variable
+combined <- combined %>%
+  filter(TractFIPS %in% udp$FIPS) %>%
+  mutate(TractFIPS = as.character(TractFIPS)) %>%
+  left_join(udp, by = c("TractFIPS" = "FIPS")) %>%
+  separate(UDP_TYPE.15,
+           into = c("Income Group 2015", "Status 2015"),
+           sep = "_") %>%
+  mutate(
+    `Income Group 2015` = ifelse(`Income Group 2015` == "LI", "Low Income", "Medium or High"),
+    `Status 2015` = case_when(
+      `Status 2015` == "AG" ~ "Advanced Gentrification",
+      `Status 2015` == "AtRisk" ~ "At Risk",
+      `Status 2015` == "NL" ~ "Not Losing",
+      `Status 2015` == "UG" ~ "Undergoing Gentrification",
+      TRUE ~ ""
+    ),
+    `Status 2015` = ifelse(`Income Group 2015` == "Medium or High", NA, `Status 2015`),
+    `Status 2015` = factor(
+      `Status 2015`,
+      levels = c(
+        "Not Losing",
+        "At Risk",
+        "Undergoing Gentrification",
+        "Advanced Gentrification"
+      )
+    ),
+    Range = High_Confidence_Limit - Low_Confidence_Limit,
+    NH_Typo15 = factor(
+      NH_Typo15,
+      levels = c(
+        "Susceptible",
+        "Early: Type1",
+        "Early: Type2",
+        "Dynamic",
+        "Late",
+        "Continued Loss"
+      )
+    )
+  )
+
+```
+
+## UDP Gentrification Determination
+
+Gentrification applicable only to subset of low-income tracts
+
+| Low             | Medium or High  |
+|-----------------|-----------------|
+| Not Losing to G | Not Losing to G |
+| At Risk G       | At Risk G       |
+| Undergoing G    | Undergoing G    |
+| Advanced G      | Advanced G      |
+
+```{r}
+# Plot of Trend
+combined %>%
+  ggplot(aes(x = factor(Year), y = Data_Value, group = TractFIPS, color = `Status 2015`)) +
+  geom_point(aes(size = Range), alpha = 0.4) +
+  geom_line() +
+  labs(subtitle = "UDP Gentrification Typology",
+       x = "Year", 
+       y = "Poor Mental Health Prevalence")  +
+  facet_grid(~`Status 2015`, labeller = label_wrap_gen()) + 
+  theme(legend.position = "bottom",
+        legend.box = "vertical") +
+  guides(color = FALSE)
+
+# Plot of Variance
+combined %>%
+  ggplot(aes(x = factor(Year), y = Range, group = TractFIPS, color = `Status 2015`)) +
+  geom_point(aes(size = Data_Value), alpha = 0.4) +
+  geom_line() +
+  labs(subtitle = "UDP Gentrification Typology",
+       x = "Year", 
+       y = "Range",
+       size = "Poor Mental Health Prevalence") +
+  facet_grid(~`Status 2015`) +
+  theme(legend.position = "bottom",
+        legend.box = "vertical") +
+  guides(color = FALSE)
+```
+
+## Lisa Bates Gentrification Typology
+
+| Stage          | Vulnerable Population | Demographic Change | Housing Market Condition |
+|----------------|-----------------------|--------------------|--------------------------|
+| Susceptible    |                       |                    |                          |
+| Early Type 1   |                       |                    |                          |
+| Early Type 2   |                       |                    |                          |
+| Dynamic        |                       |                    |                          |
+| Late           |                       |                    |                          |
+| Continued Loss |                       |                    |                          |
+
+```{r}
+# Plot of Trend
+combined %>%
+  ggplot(aes(x = factor(Year), y = Data_Value, group = TractFIPS, color = NH_Typo15)) +
+  geom_point(aes(size = Range), alpha = 0.4) +
+  geom_line() +
+  labs(x = "Year", y = "Poor Mental Health Prevalence",
+       subtitle = "Lisa Bates Gentrification Typology")  +
+  facet_grid(~NH_Typo15) + 
+  theme(legend.position = "bottom",
+        legend.box = "vertical") +
+  guides(color = FALSE)
+
+# Plot of Variance
+combined %>%
+  ggplot(aes(x = factor(Year), y = Range, group = TractFIPS, color = NH_Typo15)) +
+  geom_point(aes(size = Data_Value), alpha = 0.4) +
+  geom_line() +
+  labs(x = "Year", y = "Range",
+       subtitle = "Lisa Bates Gentrification Typology",
+       size = "Poor Mental Health Prevalence")  +
+  facet_grid(~NH_Typo15) + 
+  theme(legend.position = "bottom",
+        legend.box = "vertical") +
+  guides(color = FALSE)
+```
+
+## Miscellaneous
+
+```{r}
+combined %>%
+  filter(TractFIPS %in% udp$FIPS) %>%
+  mutate(TractFIPS = as.character(TractFIPS)) %>%
+  left_join(udp, by = c("TractFIPS" = "FIPS")) %>%
+  separate(UDP_TYPE.15, into = c("Income Group 2015", "Status 2015"), sep = "_")%>%
+  mutate(`Income Group 2015` = ifelse(`Income Group 2015` == "LI", "Low Income", "Medium or High"),
+         `Status 2015` = case_when(`Status 2015` == "AG" ~ "Advanced Gentrification",
+                                   `Status 2015` == "AtRisk" ~ "At Risk",
+                                   `Status 2015` == "NL" ~ "Not Losing",
+                                   `Status 2015` == "UG" ~ "Undergoing Gentrification",
+                                   TRUE ~ ""),
+         `Status 2015` = factor(`Status 2015`, levels = c("Not Losing", "At Risk", "Undergoing Gentrification", "Advanced Gentrification")),
+         Range = High_Confidence_Limit - Low_Confidence_Limit) %>%
+  filter(`Income Group 2015` == "Low Income") %>%
+  ggplot(aes(x = Range)) +
+  geom_histogram(aes(fill = `Status 2015`), alpha = 0.5, color = "white") +
+  facet_grid(rows = vars(`Status 2015`), labeller = label_wrap_gen()) +
+  theme(panel.grid.minor = element_blank(),
+        legend.position = "none") 
+  
+```
+
+```{r}
+
+```
+
+```{r}
+dat <- combined %>%
+  filter(TractFIPS %in% udp$FIPS) %>%
+  mutate(TractFIPS = as.character(TractFIPS)) %>%
+  left_join(udp, by = c("TractFIPS" = "FIPS")) %>%
+  separate(UDP_TYPE.15, into = c("Income Group 2015", "Status 2015"), sep = "_")%>%
+  mutate(`Income Group 2015` = ifelse(`Income Group 2015` == "LI", "Low Income", "Medium or High"),
+         `Status 2015` = case_when(`Status 2015` == "AG" ~ "Advanced Gentrification",
+                                   `Status 2015` == "AtRisk" ~ "At Risk",
+                                   `Status 2015` == "NL" ~ "Not Losing",
+                                   `Status 2015` == "UG" ~ "Undergoing Gentrification",
+                                   TRUE ~ ""),
+         `Status 2015` = factor(`Status 2015`, levels = c("Not Losing", "At Risk", "Undergoing Gentrification", "Advanced Gentrification")),
+         Range = High_Confidence_Limit - Low_Confidence_Limit) %>%
+  filter(`Income Group 2015` == "Low Income") 
+
+mod <- lm(Range ~ Data_Value + NH_Typo15 + PopulationCount, data = dat)
+summary(mod)
+```

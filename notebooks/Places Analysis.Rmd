@@ -1,0 +1,492 @@
+---
+title: "Places Analysis"
+author: "AJ Liberatore"
+date: "4/12/2022"
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+
+library(tigris)
+library(sp)
+library(sf)
+library(ggplot2)
+library(dplyr)
+library(shiny)
+library(leaflet)
+library(gridExtra)
+library(EnvStats)
+theme_set(theme_minimal())
+options(scipen = 999)
+```
+
+# Analysis of Places Geography for HOLC Graded Cities
+
+Objectives:
+
+- Find out how many places intersect with the original HOLC boundaries. This will give us an idea of the places that encapsulate cities.
+
+- How much bigger are the combined places than the original HOLC boundaries? We expect that populations have expanded and/or migrated from the original boundaries, and expect the combined places geographies to reflect that.
+
+- Add tract lines within the places for plots (lots of plots). Thus, every place/combined place geography is broken down by census tract. Additional granularity is always a good move.
+
+- See if setting cb to TRUE when pulling places makes changes. This will pull a more detailed shapefile than the default (cb = FALSE). Ideally, we will get a better result, but generalizing should do for now.
+
+## Loading necessary data
+```{r, echo = FALSE, results='hide'}
+# Lookup table for states with GEOID and 2 letter abbreviation
+state_lookup <- tigris::states() %>%
+  select(GEOID, STUSPS) %>%
+  st_drop_geometry()
+
+# Loads places data with geography
+places <- readRDS("../outputs/geo_places.RDS")
+
+# Loads tracts data with geography
+tracts <- readRDS("../outputs/geo_tracts.RDS")
+
+# Loads holc data with tracts, city, state, and their holc grade
+holc <- read.csv("../raw data/All_Population_Weighted_HOLC_Grades_pt2_Threshold.csv", 
+                 colClasses = c("GEOID" = "character"))
+
+# Loads tracts data with geography and the place which it is in
+places_tracts <- readRDS("../outputs/final_places_tracts.RDS") %>%
+  left_join(state_lookup, by = c("STATEFP" = "GEOID"))
+
+# Loads holc data with tracts, city, place, and their holc grade
+holc_geo <- readRDS("../outputs/holc_geo.RDS")
+
+# Loads city data with combined places geography
+holc_place <- readRDS("../outputs/holc_place.RDS")
+
+# Loads place data with geography for places with population estimate greater than 50k in 2019
+places_pop_gt_50k <- readRDS("../outputs/places_pop_gt_50k.RDS")
+
+# Loads population estimates for tracts
+all_acs_pops <- readRDS("../outputs/all_acs_pops.RDS")
+```
+
+```{r, echo=FALSE, results='hide'}
+# Calculates area of combined places data for cities, m^2
+place_areas <- holc_place %>%
+  dplyr::mutate(place_area = as.numeric(sf::st_area(geometry))) %>%
+  st_drop_geometry()
+
+# Calculates area of holc graded tracts, m^2
+tract_areas <- tracts %>%
+  dplyr::filter(GEOID %in% holc$GEOID) %>%
+  dplyr::mutate(tract_area = as.numeric(sf::st_area(geometry))) %>%
+  dplyr::select(GEOID, tract_area) %>%
+  st_drop_geometry()
+
+# Calculates area of holc graded tracts for cities, m^2
+holc_areas <- holc %>%
+  dplyr::left_join(tract_areas, by = "GEOID") %>%
+  dplyr::group_by(city, state) %>%
+  dplyr::summarise(tract_area = sum(tract_area, na.rm = TRUE))
+holc_areas <- as.data.frame(holc_areas)
+
+# Table for cities which includes holc area, place area, and place to tract ratio
+area_table <- holc_areas %>%
+  dplyr::left_join(place_areas, by = c("city" = "CITY", "state" = "STUSPS.CITY")) %>%
+  dplyr::mutate(place_tract_ratio = tract_area / place_area)
+```
+
+## Mapping and Statistics
+
+### All Cities
+
+
+Data for all cities indicates that while the new places data takes up the largest land area and includes a larger populace (roughly 50% more), the places where that data intersects with the new HOLC data has the densest population, likely making them more relevant for our analysis. This is not to discount them from importance however, as the places data is still more dense than the holc graded tracts, which may indicate a movement in population of certain areas.  
+
+
+While outliers are removed because there are many of them (and they wreak havoc on the plot), the boxplots below indicate similar results for population density. The intersection of HOLC and places tracts have much higher density than either alone. When the intersection is included in both places and HOLC tracts, both come much closer to the intersection's density. We can conclude that going off of places is a good move, given that almost all HOLC tracts intersect with places tracts. With the move to places tracts, only 5% of land area and 2% of the population are discluded.
+
+
+To further support this, 127 of the 202 cities have holc tracts which are completely enveloped in places.
+
+
+```{r, echo = FALSE}
+# Set general holc file to be holc
+state_holc <- holc
+
+# Dataframe of tracts with their geography and population; filtered to be only those in holc
+state_holc_geo <- tracts %>%
+  filter(GEOID %in% state_holc$GEOID) %>%
+  select(GEOID, geometry) %>%
+  distinct(GEOID, .keep_all = TRUE) %>%
+  st_as_sf() %>%
+  sf::st_set_crs(4269) %>%
+  dplyr::left_join(all_acs_pops, by = "GEOID")
+
+# Geography of combined place data for cities
+state_place_geo <- holc_place %>%
+  pull(geometry) %>%
+  st_as_sf()
+
+# Pulls list of places
+pulled_places <- holc_geo %>%
+  select(PLACE, STUSPS.PLACE) %>%
+  distinct()
+
+# Dataframe of distinct tracts in specified places with population estimate and geography
+state_place_geo_tracts <- pulled_places %>%
+  left_join(places_tracts, by = c("PLACE" = "NAME", "STUSPS.PLACE" = "STUSPS")) %>%
+  select(GEOID, geometry) %>%
+  distinct(GEOID, .keep_all = TRUE) %>%
+  st_as_sf() %>%
+  sf::st_set_crs(4269) %>%
+  dplyr::left_join(all_acs_pops, by = "GEOID")
+
+# Geography of intersecting tracts (places tracts and holc tracts) for city
+holc_place_intersection <- state_holc_geo %>%
+  filter(GEOID %in% state_place_geo_tracts$GEOID) %>%
+    sf::st_set_crs(4269)
+
+# Geography of combined places tracts without intersection
+state_place_geo_tracts_new <- state_place_geo_tracts %>%
+    dplyr::filter(!(GEOID %in% holc_place_intersection$GEOID))
+
+# Geography of holc graded tracts without intersection
+state_holc_geo_new <- state_holc_geo %>%
+    dplyr::filter(!(GEOID %in% holc_place_intersection$GEOID))
+
+# Number of cities which have holc graded tracts outside of combined place geography
+state_holc_geo_aggregate <- holc %>%
+  left_join(tracts %>% select(GEOID, geometry), by = "GEOID") %>%
+  dplyr::filter(!(GEOID %in% holc_place_intersection$GEOID)) %>%
+  dplyr::mutate(area = as.numeric(sf::st_area(geometry))) %>%
+  dplyr::group_by(city, state) %>%
+  dplyr::summarise(area = sum(area, na.rm = TRUE)) %>%
+  dplyr::filter(area != 0) %>%
+  dplyr::select(city, state) %>%
+  nrow()
+
+# Table of the total area, population, and population density of all groups
+get_place_area_table <- function(spgtn, shgn, hpi, spgt, shg){
+  # Combined area of tracts in each group
+  tract_areas <- c(sum(as.numeric(sf::st_area(spgtn))),
+         sum(as.numeric(sf::st_area(shgn))),
+         sum(as.numeric(sf::st_area(hpi))),
+         sum(as.numeric(sf::st_area(spgt))),
+         sum(as.numeric(sf::st_area(shg))))
+  
+  # Proportion of total area of city which group takes up
+  area_proportions <- c(tract_areas[1:3] / sum(tract_areas[1:3]) * 100, tract_areas[4:5] / sum(tract_areas[1:3]) * 100)
+  
+  # Combined population of tracts in each group
+  tract_pops <- c(sum(spgtn$estimate, na.rm = TRUE),
+         sum(shgn$estimate, na.rm = TRUE),
+         sum(hpi$estimate, na.rm = TRUE),
+         sum(spgt$estimate, na.rm = TRUE),
+         sum(shg$estimate, na.rm = TRUE))
+  
+  # Proportion of total population of city which group takes up
+  pop_proportions <- c(tract_pops[1:3] / sum(tract_pops[1:3]) * 100, tract_pops[4:5] / sum(tract_pops[1:3]) * 100)
+  
+  # Population density for each group by km^2, null values coerced to zero
+  pop_density <- as.numeric(mapply("/", tract_pops, tract_areas, SIMPLIFY = FALSE))*1000000
+  pop_density[is.na(pop_density)] <- 0
+  
+  # Names of columns
+  df_cols <- c("Places Tracts (Exclusive)", "HOLC Tracts (Exclusive)", "Intersection", "Places Tracts (Inclusive)", 
+               "HOLC Tracts (Inclusive)")
+  
+  # Creates dataframe where each row is a calculation and each column is a group. Rounded to 2 decimal places.
+  place_area_table <- as.data.frame(do.call("rbind", list(paste0(round(area_proportions, 2), "%"),
+                                                          paste0(round(pop_proportions, 2), "%"), 
+                                                          round(pop_density, 2))),
+                     row.names = c("Land Area", "Population", "Density (pop/km^2)"))
+  colnames(place_area_table) <- df_cols
+  return(place_area_table)
+}
+
+place_area_table <- get_place_area_table(spgtn = state_place_geo_tracts_new,
+                                         shgn = state_holc_geo_new,
+                                         hpi = holc_place_intersection, 
+                                         spgt = state_place_geo_tracts, 
+                                         shg = state_holc_geo)
+
+# Creates a table visual
+knitr::kable(place_area_table)
+
+all_cities_plot <- ggplot() +
+  geom_sf(data = state_place_geo_tracts_new, fill = "blue", alpha = 0.5) +
+  geom_sf(data = state_holc_geo_new, fill = "green", alpha = 0.5) +
+  geom_sf(data = holc_place_intersection, fill = "red", alpha = 0.5)
+
+# Table of areas, populations, and densities for tracts in different groups
+get_density_table <- function(spgtn, shgn, hpi, spgt, shg) {
+  # Areas of tracts by group
+  spgtn_area <- as.numeric(sf::st_area(spgtn))
+  shgn_area <- as.numeric(sf::st_area(shgn))
+  hpi_area <- as.numeric(sf::st_area(hpi))
+  spgt_area <- as.numeric(sf::st_area(spgt))
+  shg_area <- as.numeric(sf::st_area(shg))
+  tract_areas <- c(spgtn_area, shgn_area, hpi_area, spgt_area, shg_area)
+    
+  # Types of tracts by group
+  spgtn_type <- rep("Places (Exclusive)", length(spgtn_area))
+  shgn_type <- rep("HOLC (Exclusive)", length(shgn_area))
+  hpi_type <- rep("Intersection", length(hpi_area))
+  spgt_type <- rep("Places (Inclusive)", length(spgt_area))
+  shg_type <- rep("HOLC (Inclusive)", length(shg_area))
+  tract_types <- c(spgtn_type, shgn_type, hpi_type, spgt_type, shg_type)
+    
+  # Population of tracts by group
+  spgtn_pop <- spgtn$estimate
+  shgn_pop <- shgn$estimate
+  hpi_pop <- hpi$estimate
+  spgt_pop <- spgt$estimate
+  shg_pop <- shg$estimate
+  tract_pops <- c(spgtn_pop, shgn_pop, hpi_pop, spgt_pop, shg_pop)
+  
+  # Density table with type, area m^2, pop, and density of tract km^2
+  density_table <- as.data.frame(cbind(tract_types, tract_areas, tract_pops))
+  colnames(density_table) <- c("type", "area", "pop")
+  density_table <- density_table %>%
+    dplyr::mutate(area = as.numeric(area),
+                  pop = as.numeric(pop)) %>%
+    replace(is.na(.), 0) %>%
+    dplyr::mutate(density = pop / area * 1000000) %>%
+    replace(is.na(.), 0)
+  
+  return(density_table)
+}
+
+density_table <- get_density_table(spgtn = state_place_geo_tracts_new,
+                                   shgn = state_holc_geo_new,
+                                   hpi = holc_place_intersection, 
+                                   spgt = state_place_geo_tracts, 
+                                   shg = state_holc_geo)
+
+# Boxplots of density distributions for groups of tracts
+all_cities_density_plot <- ggplot(density_table)+
+  geom_boxplot(aes(y = density, x = type, fill = type), outlier.shape = NA)+
+  stat_n_text(aes(y = density, x = type)) +
+  scale_y_continuous(limits = quantile(density_table$density, c(0.1, 0.9)))
+
+plot(all_cities_density_plot)
+
+print(paste0("Cities where HOLC tracts are completely enshrouded in Place tracts: ", 202 - state_holc_geo_aggregate))
+
+```
+
+### Individual Cities
+
+Investigating at the individual city level makes it possible to get an idea of not only how cities have grown over time, but also how redlining differs between geographies.
+
+```{r, echo = FALSE}
+# Table with 202 cities
+city_table <- holc %>%
+  dplyr::select(city, state) %>%
+  dplyr::distinct() %>%
+  dplyr::mutate(city_state = paste0(city, ", ", state))
+
+# User input for city
+inputPanel(
+  shiny::selectInput("city", label = "City Name",
+                     choices = city_table$city_state)
+)
+
+# Pull name of selected city
+selected_city <- reactive({
+  city_table %>%
+    dplyr::filter(city_state == input$city) %>%
+    dplyr::pull(city)
+})
+
+# Pull state of selected city
+selected_state <- reactive({
+  city_table %>%
+    dplyr::filter(city_state == input$city) %>%
+    dplyr::pull(state)
+})
+
+# Pull holc tracts for selected city
+state_holc <- reactive({
+  holc %>%
+    dplyr::filter(city == selected_city(), state == selected_state())
+})
+
+# SF with tract geometry and population data for selected city
+state_holc_geo <- reactive({
+  tracts %>%
+    dplyr::filter(GEOID %in% state_holc()$GEOID) %>%
+    dplyr::select(GEOID, geometry) %>%
+    dplyr::distinct(GEOID, .keep_all = TRUE) %>%
+    dplyr::left_join(all_acs_pops, by = "GEOID") %>%
+    sf::st_as_sf() %>%
+    sf::st_set_crs(4269)
+})
+
+# SF with combined place geometry of city
+state_place_geo <- reactive({
+  holc_place %>%
+    dplyr::filter(CITY == selected_city(), STUSPS.CITY == selected_state()) %>%
+    dplyr::pull(geometry) %>%
+    sf::st_as_sf()
+})
+
+# List of places in selected city
+pulled_places <- reactive({
+  holc_geo %>%
+  dplyr::filter(CITY == selected_city(), STUSPS.CITY == selected_state()) %>%
+  dplyr::select(PLACE, STUSPS.PLACE) %>%
+  dplyr::distinct()
+})
+
+# SF of tracts with geography and populations in places
+state_place_geo_tracts <- reactive({
+  pulled_places() %>%
+  dplyr::left_join(places_tracts, by = c("PLACE" = "NAME", "STUSPS.PLACE" = "STUSPS")) %>%
+  dplyr::select(GEOID, geometry) %>%
+  dplyr::distinct(GEOID, .keep_all = TRUE) %>%
+  dplyr::left_join(all_acs_pops, by = "GEOID") %>%
+  sf::st_as_sf() %>%
+    sf::st_set_crs(4269)
+})
+
+# SF of tracts which are both holc graded and in place geographies
+holc_place_intersection <- reactive({
+  state_holc_geo() %>%
+    dplyr::filter(GEOID %in% state_place_geo_tracts()$GEOID) %>%
+    #dplyr::left_join(all_acs_pops, by = "GEOID") %>%
+    sf::st_set_crs(4269)
+})
+
+# SF of place tracts without its intersection with holc tracts
+state_place_geo_tracts_new <- reactive({
+  state_place_geo_tracts() %>%
+    dplyr::filter(!(GEOID %in% holc_place_intersection()$GEOID)) #%>%
+    #dplyr::left_join(all_acs_pops, by = "GEOID")
+})
+
+# SF of holc tracts without its intersection with place tracts
+state_holc_geo_new <- reactive({
+  state_holc_geo() %>%
+    dplyr::filter(!(GEOID %in% holc_place_intersection()$GEOID)) #%>%
+    #dplyr::left_join(all_acs_pops, by = "GEOID")
+})
+
+# Table of the total area, population, and population density of all groups
+place_area_table <- reactive({
+  get_place_area_table(spgtn = state_place_geo_tracts_new(),
+                       shgn = state_holc_geo_new(),
+                       hpi = holc_place_intersection(), 
+                       spgt = state_place_geo_tracts(), 
+                       shg = state_holc_geo())
+})
+
+# Table of areas, populations, and densities for tracts in different groups
+density_table <- reactive({
+  get_density_table(spgtn = state_place_geo_tracts_new(),
+                    shgn = state_holc_geo_new(),
+                    hpi = holc_place_intersection(), 
+                    spgt = state_place_geo_tracts(), 
+                    shg = state_holc_geo())
+})
+
+```
+
+```{r, echo=FALSE}
+
+# Leaflet map for different groups in selected city. Includes popup with population.
+renderLeaflet({
+    leaflet() %>%
+      addProviderTiles("CartoDB.Voyager") %>%
+      addPolygons(data = state_holc_geo_new(),
+                  weight = 0.5,
+                  opacity = 0.5, 
+                  color = "green",
+                  popup = paste0("Tract: ", state_holc_geo_new()$GEOID, "<br>", "Population: ", state_holc_geo_new()$estimate)) %>%
+      addPolygons(data = state_place_geo_tracts_new(),
+                  weight = 0.5,
+                  opacity = 0.5, 
+                  color = "blue",
+                  popup = paste0("Tract: ", state_place_geo_tracts_new()$GEOID, "<br>", "Population: ", state_place_geo_tracts_new()$estimate)) %>%
+      addPolygons(data = holc_place_intersection(),
+                  weight = 1,
+                  opacity = 1,
+                  color = "red",
+                  popup = paste0("Tract: ", holc_place_intersection()$GEOID, "<br>", "Population: ", holc_place_intersection()$estimate)) %>%
+      addLegend("bottomright", 
+                colors = c("green", "blue", "red"), 
+                labels = c("HOLC Tracts", "Place Tracts", "Intersection"),
+                title = "Overlap of Tracts",
+                opacity = 1)
+  })
+
+# Table of total area, population, and density of groups.
+renderTable({
+    place_area_table()
+  },
+  rownames = TRUE,
+  colnames = TRUE)
+
+# Boxplot of population density by groups
+renderPlot({
+  ggplot(density_table())+
+  geom_boxplot(aes(y = density, x = type, fill = type))+
+  stat_n_text(aes(y = density, x = type))
+})
+
+```
+
+### Places with Pop > 50k
+
+We also have additional data, in the form of individual places with a population of greater than 50k. This may be useful as well, but each state has different definitions of a place, documented [here](https://www2.census.gov/geo/pdfs/reference/GARM/Ch9GARM.pdf).
+
+```{r, echo=FALSE}
+# Pulls names of places with population greater than 50k
+place_table <- places_pop_gt_50k %>%
+  dplyr::select(PLACE, STUSPS, STATEFP.PLACE) %>%
+  dplyr::distinct() %>%
+  dplyr::mutate(place_state = paste0(PLACE, ", ", STUSPS))
+
+# User input for place
+inputPanel(
+  shiny::selectInput("place", label = "Place Name",
+                     choices = place_table$place_state)
+)
+
+# Pulls name of selected place
+selected_place <- reactive({
+  place_table %>%
+    dplyr::filter(place_state == input$place) %>%
+    dplyr::pull(PLACE)
+})
+
+# Pulls state of selected place
+selected_place_state <- reactive({
+  place_table %>%
+    dplyr::filter(place_state == input$place) %>%
+    dplyr::pull(STATEFP.PLACE)
+})
+
+# Pulls tracts for selected place with population
+selected_place_geo <- reactive({
+  places_tracts %>%
+    dplyr::filter(NAME == selected_place() & STATEFP == selected_place_state()) %>%
+    sf::st_as_sf() %>%
+    sf::st_set_crs(4269) %>%
+    dplyr::left_join(all_acs_pops, by = "GEOID")
+})
+```
+
+
+```{r, echo=FALSE}
+# Leaflet map for place. Includes popup with population.
+renderLeaflet({
+  leaflet() %>%
+    addProviderTiles("CartoDB.Voyager") %>%
+    addPolygons(data = selected_place_geo(),
+                weight = 0.5,
+                opacity = 0.5,
+                color = "green",
+                popup = paste0("Tract: ", selected_place_geo()$GEOID, "<br>", "Population: ", selected_place_geo()$estimate))
+})
+```
