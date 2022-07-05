@@ -43,10 +43,7 @@ indicators_long <- indicators %>%
          `Percent Non-Hispanic White`,
          `Percent Structures more than 30 years old`,
          `Households in neighborhood 10 years or less`) %>%
-  gather(key = "Measure", value = "Value", -YEAR, -STATE, -NAME, -GEOID, -`Total Pop`) %>% 
-  group_by(YEAR, STATE, NAME, Measure) %>%
-  mutate(Rank = percent_rank(Value)) %>%
-  ungroup()
+  gather(key = "Measure", value = "Value", -YEAR, -STATE, -NAME, -GEOID, -`Total Pop`) 
 
 saveRDS(indicators_long, "outputs/indicators_long.RDS")
 

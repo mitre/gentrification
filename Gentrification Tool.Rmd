@@ -148,14 +148,20 @@ start <- reactive({
   data %>%
     filter(YEAR == input$range[1],
            STATE == input$state,
-           NAME %in% input$places)
+           NAME %in% input$places) %>% 
+  group_by(YEAR, STATE, Measure) %>%
+  mutate(Rank = percent_rank(Value)) %>%
+  ungroup()
 })
 
 end <- reactive({
   data %>%
     filter(YEAR == input$range[2],
            STATE == input$state,
-           NAME %in% input$places)
+           NAME %in% input$places) %>% 
+  group_by(YEAR, STATE, Measure) %>%
+  mutate(Rank = percent_rank(Value)) %>%
+  ungroup()
 })
 
 start_end <- reactive({
