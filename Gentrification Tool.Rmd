@@ -66,7 +66,9 @@ Two common concepts are used in defining gentrification.
 
 Indicators can be used to define eligibility, determination, or both.
 
-### Governing Methodology 
+In addition to areal indicators, time period of evaluation and reference geographic region are also important decisions which may impact the quantification of tracts as gentrified
+
+### Example Methodology to Replicate:
 
 In 2015, *Governing: The Future of States and Localities*, published a [report](https://www.governing.com/archive/gentrification-in-cities-governing-report.html) analyzing the landscape of gentrification in across the nation's 50 largest cities. 
 
@@ -89,19 +91,12 @@ In order to replicate this method using the application, in **Define Indicators*
 
 - `Median Household Income` eligibility threshold = 0.4, determination threshold  = 0
 - `Median Home Value` eligibility threshold = 0.4, determination threshold = 0.66
-- `Higher Education` eligibility threshold = 1, determination threshold = 0.25
+- `Higher Education` eligibility threshold = 1, determination threshold = 0.75
 
 In **Select Indicators**, check only `Median Household Income`, `Median Home Value`, and `Higher Education`. 
 
 Only tracts with all 3 positive indicators of gentrification would be classified as gentrified.
 
-
-
-## Lance Freeman Methodology
-
-## Hammel and Wyly Methodology
-
-In addition to areal indicators, time period of evaluation and reference geographic region are also important decisions which may impact the quantification of tracts as gentrified:
 
 # Explore Indicators
 
