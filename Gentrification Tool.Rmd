@@ -45,9 +45,9 @@ holc_colors <- c(
 )
 
 gent_colors <- c(
-  "#D0E1D4",  
-  "#0C6291", 
-  "#C05746" 
+  "Not Eligible" = "#D0E1D4",  
+  "Positive Indicator" = "#0C6291", 
+  "Still Susceptible" = "#C05746" 
 )
 
 theme_set(theme_minimal()) +
@@ -70,7 +70,37 @@ Two common concepts are used in defining gentrification.
 
 Indicators can be used to define eligibility, determination, or both.
 
-In addition to areal indicators, time period of evaluation and reference geographic region are also important decisions which may impact the quantification of tracts as gentrified:
+In addition to areal indicators, time period of evaluation and reference geographic region are also important decisions which may impact the quantification of tracts as gentrified
+
+### Example Methodology to Replicate:
+
+In 2015, *Governing: The Future of States and Localities*, published a [report](https://www.governing.com/archive/gentrification-in-cities-governing-report.html) analyzing the landscape of gentrification in across the nation's 50 largest cities. 
+
+Their [methodology](https://www.governing.com/archive/gentrification-report-methodology.html) used to determine tract eligibility is described as follows:
+
+**Eligibility**
+
+1. The tract had a population of at least 500 residents at the beginning and end of a decade and was located within a central city
+2. The tract's median household income was in the bottom 40th percentile when compared to all tracts within its metro area at the beginning of the decade
+3. The tracts median home value was in the bottom 40th percentile when compared to all tracts within its metro area at the beginning of the decade. 
+
+**Determination**
+
+1. An increase in the tract's educational attainment, as measured by the percentage of residents age 25 and over holding bachelor's degrees, was in the top third percentile of all tracts within a metro area.
+2. A tract's median home value increase when adjusted for inflation.
+3. The percentage increase in a tract's inflation-adjusted median home value was in the top third percentile of all tracts within a metro area.
+
+
+In order to replicate this method using the application, in **Define Indicators** select:
+
+- `Median Household Income` eligibility threshold = 0.4, determination threshold  = 0
+- `Median Home Value` eligibility threshold = 0.4, determination threshold = 0.66
+- `Higher Education` eligibility threshold = 1, determination threshold = 0.75
+
+In **Select Indicators**, check only `Median Household Income`, `Median Home Value`, and `Higher Education`. 
+
+Only tracts with all 3 positive indicators of gentrification would be classified as gentrified.
+
 
 # Explore Indicators
 
@@ -228,19 +258,30 @@ The selected thresholds will persist throughout the rest of the document.
 # Input panel information
 inputPanel(
     sliderInput("eligibility_mhi", "Select Elgibility Threshold",
-                min = 0, max = 1, value = 0.5, step = 0.1), 
+                min = 0, max = 1, value = 0.5, step = 0.01), 
     
     sliderInput("determination_mhi", "Select Determination Threshold",
-                min = 0, max = 1, value = 0.5, step = 0.1)
+                min = 0, max = 1, value = 0.5, step = 0.01),
+    
+    actionButton("update_mhi", "Update Thresholds")
   )
 
 
 # Generate MHI data set
+
+mhi_et <- reactiveVal(0.5)
+mhi_dt <- reactiveVal(0.5)
+
+observeEvent(input$update_mhi, {
+  mhi_et(input$eligibility_mhi)
+  mhi_dt(input$determination_mhi)
+})
+
 mhi <- reactive({
   start_end() %>%
     filter(Measure == "Median Household Income") %>%
-    add_gentrification_label(input_eligibility = input$eligibility_mhi, 
-                             input_determination = input$determination_mhi)
+    add_gentrification_label(input_eligibility = mhi_et(), 
+                             input_determination = mhi_dt())
 })
 
 tract_mhi <- reactive({
@@ -271,18 +312,29 @@ splitLayout(
 ```{r rent, echo=FALSE}
 inputPanel(
     sliderInput("eligibility_rent", "Select Elgibility Threshold",
-                min = 0, max = 1, value = 0.5, step = 0.1), 
+                min = 0, max = 1, value = 0.5, step = 0.01), 
     
     sliderInput("determination_rent", "Select Determination Threshold",
-                min = 0, max = 1, value = 0.5, step = 0.1)
+                min = 0, max = 1, value = 0.5, step = 0.01),
+    
+    actionButton("update_rent", "Update Thresholds")
   )
 
 # Generate MHI data set
+
+rent_et <- reactiveVal(0.5)
+rent_dt <- reactiveVal(0.5)
+
+observeEvent(input$update_rent, {
+  rent_et(input$eligibility_rent)
+  rent_dt(input$determination_rent)
+})
+
 rent <- reactive({
   start_end() %>%
     filter(Measure == "Median Rent") %>%
-    add_gentrification_label(input_eligibility = input$eligibility_rent,
-                             input_determination = input$determination_rent)
+    add_gentrification_label(input_eligibility = rent_et(),
+                             input_determination = rent_dt())
 })
 
 tract_rent <- reactive({tracts %>%
@@ -312,18 +364,29 @@ splitLayout(
 ```{r edu, echo=FALSE}
 inputPanel(
     sliderInput("eligibility_edu", "Select Elgibility Threshold",
-                min = 0, max = 1, value = 0.5, step = 0.1), 
+                min = 0, max = 1, value = 0.5, step = 0.01), 
     
     sliderInput("determination_edu", "Select Determination Threshold",
-                min = 0, max = 1, value = 0.5, step = 0.1)
+                min = 0, max = 1, value = 0.5, step = 0.01),
+    
+    actionButton("update_edu", "Update Thresholds")
   )
 
 # Generate MHI data set
+
+edu_et <- reactiveVal(0.5)
+edu_dt <- reactiveVal(0.5)
+
+observeEvent(input$update_edu, {
+  edu_et(input$eligibility_edu)
+  edu_dt(input$determination_edu)
+})
+
 edu <- reactive({
   start_end() %>%
-    filter(Measure == "Percent with 4-year College Degree or More") %>%
-    add_gentrification_label(input_eligibility = input$eligibility_edu,
-                             input_determination = input$determination_edu)
+    filter(Measure == "Median Household Income") %>%
+    add_gentrification_label(input_eligibility = edu_et(),
+                             input_determination = edu_dt())
 })
 
 tract_edu <- reactive({tracts %>%
@@ -353,19 +416,31 @@ splitLayout(
 ```{r mhv, echo=FALSE}
 inputPanel(
     sliderInput("eligibility_mhv", "Select Elgibility Threshold",
-                min = 0, max = 1, value = 0.5, step = 0.1), 
+                min = 0, max = 1, value = 0.5, step = 0.01), 
     
     sliderInput("determination_mhv", "Select Determination Threshold",
-                min = 0, max = 1, value = 0.5, step = 0.1)
+                min = 0, max = 1, value = 0.5, step = 0.01),
+    
+    actionButton("update_mhv", "Update Thresholds")
   )
 
 
-# Generate MHI data set
+# Generate MHV data set
+
+
+mhv_et <- reactiveVal(0.5)
+mhv_dt <- reactiveVal(0.5)
+
+observeEvent(input$update_mhv, {
+  mhv_et(input$eligibility_mhv)
+  mhv_dt(input$determination_mhv)
+})
+
 mhv <- reactive({
   start_end() %>%
     filter(Measure == "Median Home Value") %>%
-    add_gentrification_label(input_eligibility = input$eligibility_mhv,
-                             input_determination = input$determination_mhv)
+    add_gentrification_label(input_eligibility = mhv_et(),
+                             input_determination = mhv_dt())
 })
 
 tract_mhv <- reactive({tracts %>%
@@ -395,24 +470,34 @@ splitLayout(
 ```{r nhw, echo=FALSE}
 inputPanel(
     sliderInput("eligibility_nhw", "Select Elgibility Threshold",
-                min = 0, max = 1, value = 0.5, step = 0.1), 
+                min = 0, max = 1, value = 0.5, step = 0.01), 
     
     sliderInput("determination_nhw", "Select Determination Threshold",
-                min = 0, max = 1, value = 0.5, step = 0.1)
+                min = 0, max = 1, value = 0.5, step = 0.01),
+    
+    actionButton("update_nhw", "Update Thresholds")
   )
 
 # Generate NHW data set
+
+nhw_et <- reactiveVal(0.5)
+nhw_dt <- reactiveVal(0.5)
+
+observeEvent(input$update_nhw, {
+  nhw_et(input$eligibility_nhw)
+  nhw_dt(input$determination_nhw)
+})
 nhw <- reactive({
   start_end() %>%
     filter(Measure == "Percent Non-Hispanic White") %>%
-    add_gentrification_label(input_eligibility = input$eligibility_edu,
-                             input_determination = input$determination_edu)
+    add_gentrification_label(input_eligibility = nhw_et(),
+                             input_determination = nhw_dt())
 })
 
 tract_nhw <- reactive({tracts %>%
-        filter(STATEFP == fips()$state_code,
-           NAME %in% fips()$PLACE) %>%
-        left_join(.,nhw(), by = "GEOID") %>% st_as_sf()
+        filter(STATEFP == fips()$STATE_FIP,
+               COUNTYFP == fips()$COUNTY_FIP) %>%
+        merge(.,nhw(), by = "GEOID")
       })
 
 # Output
@@ -436,18 +521,28 @@ splitLayout(
 ```{r hsa, echo=FALSE}
 inputPanel(
     sliderInput("eligibility_hsa", "Select Elgibility Threshold",
-                min = 0, max = 1, value = 0.5, step = 0.1), 
+                min = 0, max = 1, value = 0.5, step = 0.01), 
     
     sliderInput("determination_hsa", "Select Determination Threshold",
-                min = 0, max = 1, value = 0.5, step = 0.1)
+                min = 0, max = 1, value = 0.5, step = 0.01),
+    
+    actionButton("update_hsa", "Update Thresholds")
   )
 
 # Generate NHW data set
+hsa_et <- reactiveVal(0.5)
+hsa_dt <- reactiveVal(0.5)
+
+observeEvent(input$update_hsa, {
+  hsa_et(input$eligibility_hsa)
+  hsa_dt(input$determination_hsa)
+})
+
 hsa <- reactive({
   start_end() %>%
     filter(Measure == "Percent Structures more than 30 years old") %>%
-    add_gentrification_label(input_eligibility = input$eligibility_hsa,
-                             input_determination = input$determination_hsa)
+    add_gentrification_label(input_eligibility = hsa_et(),
+                             input_determination = hsa_dt())
 })
 
 tract_hsa <- reactive({tracts %>%
@@ -477,18 +572,29 @@ splitLayout(
 ```{r ten, echo=FALSE}
 inputPanel(
     sliderInput("eligibility_ten", "Select Elgibility Threshold",
-                min = 0, max = 1, value = 0.5, step = 0.1), 
+                min = 0, max = 1, value = 0.5, step = 0.01), 
     
     sliderInput("determination_ten", "Select Determination Threshold",
-                min = 0, max = 1, value = 0.5, step = 0.1)
+                min = 0, max = 1, value = 0.5, step = 0.01),
+    
+    actionButton("update_ten", "Update Thresholds")
   )
 
 # Generate tenure data set
+
+ten_et <- reactiveVal(0.5)
+ten_dt <- reactiveVal(0.5)
+
+observeEvent(input$update_ten, {
+  ten_et(input$eligibility_ten)
+  ten_dt(input$determination_ten)
+})
+
 ten <- reactive({
   start_end() %>%
     filter(Measure == "Households in neighborhood 10 years or less") %>%
-    add_gentrification_label(input_eligibility = input$eligibility_ten,
-                             input_determination = input$determination_ten)
+    add_gentrification_label(input_eligibility = ten_et(),
+                             input_determination = ten_dt())
 })
 
 tract_ten <- reactive({tracts %>%
@@ -518,18 +624,28 @@ splitLayout(
 ```{r fpl, echo=FALSE}
 inputPanel(
     sliderInput("eligibility_pov", "Select Elgibility Threshold",
-                min = 0, max = 1, value = 0.5, step = 0.1), 
+                min = 0, max = 1, value = 0.5, step = 0.01), 
     
     sliderInput("determination_pov", "Select Determination Threshold",
-                min = 0, max = 1, value = 0.5, step = 0.1)
+                min = 0, max = 1, value = 0.5, step = 0.01),
+    
+    actionButton("update_pov", "Update Thresholds")
   )
 
 # Generate tenure data set
+fpl_et <- reactiveVal(0.5)
+fpl_dt <- reactiveVal(0.5)
+
+observeEvent(input$update_fpl, {
+  fpl_et(input$eligibility_fpl)
+  fpl_dt(input$determination_fpl)
+})
+
 pov <- reactive({
   start_end() %>%
     filter(Measure == "Percent Above Poverty") %>%
-    add_gentrification_label(input_eligibility = input$eligibility_pov,
-                             input_determination = input$determination_pov)
+    add_gentrification_label(input_eligibility = fpl_et(),
+                             input_determination = fpl_dt())
 })
 
 tract_pov <- reactive({tracts %>%
