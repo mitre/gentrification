@@ -57,6 +57,15 @@ theme_set(theme_minimal()) +
 
 # Introduction
 
+## What is Gentrification?
+
+Our neighborhoods are all unique places, shaped by the landscape, geography, resources, and the people who live in it. However, over time, our neighborhoods and communities change, businesses enter and leave, building are built up and torn down, and people move in and out. It is difficult to separate out the causes and the consequences of these types of changes and the many ways they interact and influence each other.
+
+However, certain patterns of change, with similar characteristics under similar circumstances occur with enough frequency such to be captured with certain terminology. 
+"Gentrification" initially coined by sociologist Ruth Glass
+
+## How do we measure it? {.tabset}
+
 The purpose of this document is to help users understand how the measures and indicators used in census-based gentrification affect which areas are classified as gentrified. In even as early as 1986, George Galster & Stephen Peacock reported "great sensitivity in the number and location of gentrified tracts to the definition chosen and stringency applied", when examining areal changes in Philadelphia between 1970 - 1980. [@galster1986] This definition explorer document hopes to visualize and elucidate some of those sensitivities.
 
 Census-based gentrification definitions have often been used as a quantitative, quick way approximate the difficult concept of gentrification.
@@ -72,11 +81,14 @@ Indicators can be used to define eligibility, determination, or both.
 
 In addition to areal indicators, time period of evaluation and reference geographic region are also important decisions which may impact the quantification of tracts as gentrified
 
-### Example Methodology to Replicate:
 
-In 2015, *Governing: The Future of States and Localities*, published a [report](https://www.governing.com/archive/gentrification-in-cities-governing-report.html) analyzing the landscape of gentrification in across the nation's 50 largest cities. 
+Click on the tabs below to see how you can replicate different gentrification methodologieis with the tool. 
 
-Their [methodology](https://www.governing.com/archive/gentrification-report-methodology.html) used to determine tract eligibility is described as follows:
+### Governing Method
+
+In 2015, *Governing: The Future of States and Localities*, published a <a href="https://www.governing.com/archive/gentrification-in-cities-governing-report.html" target="_blank">report</a> analyzing the landscape of gentrification in across the nation's 50 largest cities. 
+
+Their <a href="https://www.governing.com/archive/gentrification-report-methodology.html" target="_blank">methodology</a> used to determine tract eligibility is described as follows:
 
 **Eligibility**
 
@@ -101,6 +113,21 @@ In **Select Indicators**, check only `Median Household Income`, `Median Home Val
 
 Only tracts with all 3 positive indicators of gentrification would be classified as gentrified.
 
+<hr>
+
+### Nation Neighborhood Indicators Partnership (NHIP)
+
+In 2019, the National Neighborhood Indicators Partnership released a "Guide to Measuring Neighborhood Change to Understand and Prevent Displacement".
+
+This <a href="https://www.urban.org/sites/default/files/publication/100135/guide_to_measuring_neighborhood_change_to_understand_and_prevent_displacement.pdf" target="_blank">document</a> provides a guide which helps users consider analytic approaches, indicators, and data sources to measure neighborhood change as specified for the community to prevent displacement. 
+
+<hr>
+
+
+### Lance Freeman
+
+
+<hr>
 
 # Explore Indicators
 
@@ -797,11 +824,13 @@ renderDataTable(
 
 Given the selected measures and thresholds to mark gentrification, this tool allows for comparisons with selected health outcomes.
 
-The health outcomes data come from the [U. S. Small-area Life Expectancy Estimates Project (USALEEP)](https://www.cdc.gov/nchs/nvss/usaleep/usaleep.html), and from CDC's [PLACES: Local Data for Better Health](https://chronicdata.cdc.gov/browse?category=500+Cities+%26+Places&sortBy=newest&utf8).
+The health outcomes data come from the <a href="https://www.cdc.gov/nchs/nvss/usaleep/usaleep.html" target="_blank">U. S. Small-area Life Expectancy Estimates Project (USALEEP)</a>, and from CDC's <a href="https://chronicdata.cdc.gov/browse?category=500+Cities+%26+Places&sortBy=newest&utf8" target="_blank">PLACES: Local Data for Better Health</a>.
 
 To use this section, select a health outcome of interest from the drop-down list. The following visuals will display a map colored by the number and type of gentrification indicators, with bubbles representing the prevalence of the the selected health outcome.
 
-The violin plots below show the relationship between the prevalence distribution and the number of Positive Gentrification Indicators (left) and the number of Still Eligible Gentrification Indicator (right).
+The violin plots below show the relationship between the distribution of the chosen health outcome (Y-axis) and the number of Positive Gentrification Indicators (X-axis for the figure on the left) and the number of Still Eligible Gentrification Indicator (X-axis for the figure on the right).
+
+
 
 ```{r, echo = FALSE}
 outcomes <- outcomes %>%
@@ -921,3 +950,89 @@ splitLayout(
 )
 
 ```
+
+# Evaluate Methods
+
+## Moran's I
+Moran's I is a measure of spatial autocorrelation, or in this context, how similar one tract is to its neighbors. Moran's I can take on values between [-1, 1], such that a value of 
+
+- -1: indicates a **dispersed** spatial process (imagine checkerboard)
+- 0: indicates a **random** spatial process (imagine TV static)
+- 1: indicates a **clustered** spatial process (imagine circle on a background)
+
+With the selected gentrification indicators defined above, we can examine Moran's I values for our gentrified labels. 
+
+In the context of this tool, we are testing the null hypothesis that the number of gentrification indicators is randomly dispersed (I = 0).
+
+```{r, echo = FALSE}
+cent <- reactive({
+
+  cent <- st_centroid(tract_measures()$geometry)
+  
+  lat_list = tibble(lat = 0)
+  lon_list = tibble(lon = 0)
+  
+  for (i in 1:length(cent)) {
+    lat <- cent[[i]][1]
+    lon <- cent[[i]][2]
+    
+    lat_list <- rbind(lat_list, lat)
+    lon_list <- rbind(lon_list, lon)
+  }
+  
+  lat <- lat_list[-1,]
+  lon <- lon_list[-1,]
+  
+  return(cbind(lat, lon))
+})
+
+morans_i <- reactive({
+  dist <- as.matrix(dist(cent()))
+  dist.inv <- 1/dist
+  diag(dist.inv) <- 0
+  ape::Moran.I(tract_measures()$`Positive Indicator`, dist.inv, na.rm = TRUE)
+})
+
+interpretation_observed <- reactive({
+  case_when(
+    morans_i()$observed >= 0.75 ~ "This inidcates that the distribution of gentrification indicators is a <b>highly clustered</b> spatial process.",
+    morans_i()$observed >= 0.25 &
+      morans_i()$observed < 0.75 ~ "This indicates that the distribution of gentrification indicators is a <b>moderately clustered</b> spatial process.",
+    morans_i()$observed > 0 &
+      morans_i()$observed < 0.25 ~ "This indicates that the distribution of gentrification indicators is a <b>slightly clustered spatial process, though close to random.</b>",
+    morans_i()$observed == 0 ~ "This indicates that the distribution of gentrification indicators is a <b>highly random</b> spatial process.",
+    morans_i()$observed >= -0.25 &
+      morans_i()$observed < 0 ~ "This indicates that the distribution of gentrification indicators is a <b>slightly dispersed spatial process, though close to random.</b>",
+    morans_i()$observed >= -0.75 &
+      morans_i()$observed < -0.25 ~ "This indicates that the distribution of gentrification indicators is a <b>moderately dispersed</b> spatial process.",
+    morans_i()$observed < -0.75 ~ "This indicates that the distribution of gentrification indicators is a <b>highly dispersed</b> spatial process"
+  )
+})
+
+
+interpretation_pvalue <- reactive({
+  ifelse(
+    morans_i()$p.value < 0.05,
+    "At a signficance level of 0.05, we would <b>reject the null hypothesis</b> that the number of gentrification indicators is randomly dispersed.",
+    "At a signficance level of 0.05, we would <b>fail to reject the null hypothesis</b> that the number of gentrification indicators is randomly dispersed."
+  )
+})
+
+renderText(paste(
+  "The P-value is: ",
+  morans_i()$p.value,
+  interpretation_pvalue()
+))
+
+
+renderText(paste(
+  "The observed value for Moran's I is: ",
+  round(morans_i()$observed, 2),
+  interpretation_observed()
+))
+
+```
+
+
+<hr>
+<hr>
