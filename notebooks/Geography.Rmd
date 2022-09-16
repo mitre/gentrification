@@ -8,12 +8,13 @@ runtime: shiny
 knitr::opts_chunk$set(echo = TRUE)
 options(tigris_use_cache = TRUE)
 
+library(tidyverse)
 library(tigris)
 library(sp)
 library(sf)
-library(tidyverse)
 library(tmap)
 library(shiny)
+
 ```
 
 ## Objective
@@ -103,4 +104,56 @@ state_num <- holc_tracts[holc_tracts$state == input$state,]$STATEFP
     tm_text(text = "NAME")
 })
 
+
+```
+
+## Moran's I
+
+```{r}
+root.dir = paste0("https://raw.githubusercontent.com/urbanSpatial/","Public-Policy-Analytics-Landing/master/DATA")
+
+boston.sf <-
+  st_read(file.path(root.dir,
+                    "/Chapter3_4/boston_sf_Ch1_wrangled.geojson")) %>%
+  st_set_crs('ESRI:102286')
+
+nhoods <-
+  st_read(paste0("https://bostonopendata-boston.opendata.arcgis.com/",
+                 "datasets/3525b0ee6e6b427f9aab5d0a1d0a1a28_0.geojson")) %>%
+  st_transform('ESRI:102286')
+```
+
+```{r}
+inTrain <- createDataPartition(y = paste(boston.sf$Name, 
+                                         boston.sf$NUM_FLOORS.cat,
+                                         boston.sf$Style,
+                                         boston.sf$R_AC),
+                               p = 0.6,
+                               list = F)
+
+boston.training <- boston.sf[inTrain,]
+boston.test <- boston.sf[-inTrain,]
+
+
+```
+
+[How can I calculate Moran's I in R? \| R FAQ (ucla.edu)](https://stats.oarc.ucla.edu/r/faq/how-can-i-calculate-morans-i-in-r/)
+
+```{r}
+
+install.packages("ape")
+library(ape)
+
+ozone <- read.table("https://stats.idre.ucla.edu/stat/r/faq/ozone.csv", sep=",", header=T)
+head(ozone, n=10)
+```
+
+```{r}
+ozone.dists <- as.matrix(dist(cbind(ozone$Lon, ozone$Lat)))
+
+ozone.dists.inv <- 1/ozone.dists
+
+diag(ozone.dists.inv) <- 0
+
+Moran.I(ozone$Av8top, ozone.dists.inv)
 ```
