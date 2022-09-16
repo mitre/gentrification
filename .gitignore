@@ -7,12 +7,10 @@
 *.dbf
 *.csv
 *.xlsx
-*.png
 *.pptx
 *.pdf
 *.nb.html
 *.RDS
-
 .DS_Store
 .RDataTmp
 
