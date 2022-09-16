@@ -82,6 +82,6 @@ For more information, please contact Karen Jiang [kjiang\@mitre.org](mailto:kjia
 
 ## License
 
-## Data Rights 
+## Data Rights
 
 Copyright 2022 The MITRE Corporation All Rights Reserved
