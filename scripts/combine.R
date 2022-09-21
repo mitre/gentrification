@@ -1,43 +1,25 @@
 # Creating Dataset of Features for 2010 CTs
-library(tidyverse)
-
-#' Function to clean inconsistencies in County Names 
-#' 
-#' @param data Dataset with COUNTY names column
-#' @return cleaned dataset with same COUNTY column cleaned to fix inconsistencies in county names
-
-fix_county_names <- function(data){
-  cleaned <- data %>%
-    mutate(COUNTY = ifelse(COUNTY %in% c("Du Page", "Dupage", "DuPage"), yes = "DuPage", no = COUNTY),
-           COUNTY = ifelse(COUNTY %in% c("De Soto", "Desoto", "DeSoto"), yes = "DeSoto", no = COUNTY ),
-           COUNTY = ifelse(COUNTY %in% c("La Porte", "Laporte", "LaPorte"),yes = "La Porte", no = COUNTY),
-           COUNTY = ifelse(COUNTY %in% c("La Porte", "Laporte", "LaPorte"),yes = "La Porte", no = COUNTY),
-           COUNTY = str_remove(COUNTY, " Borough"),
-           COUNTY = str_remove(COUNTY, " Census Area"),
-           COUNTY = str_remove(COUNTY, " Municipality"),
-           COUNTY = str_replace(COUNTY, "St ", "St. "),
-           COUNTY = str_replace(COUNTY, "Prince Georges", "Prince George's"),
-           COUNTY = str_to_title(COUNTY)) %>%
-    unique()
-  
-  return(cleaned)
-}
+library(dplyr)
+library(tidyr)
+library(stringr)
 
 # Process Indicators Data --------
 
 # Load LTDB Data
-ltdb <- readRDS("outputs/ltdb_combined.RDS") %>% fix_county_names()
+ltdb <- readRDS("outputs/ltdb_combined.RDS")
   
 # Load ACS Data
-acs_2012 <- readRDS("outputs/acs_2012.RDS") %>% fix_county_names()
-acs_2020 <- readRDS("outputs/acs_2020.RDS") %>% fix_county_names()
+acs_2012 <- readRDS("outputs/acs_2012.RDS")
+acs_2020 <- readRDS("outputs/acs_2020.RDS")
 
+# Load Place Names + GEOID
+places_names <- readRDS("outputs/final_places_tracts.RDS")[c("GEOID", "STATEFP", "NAME")]
 
 # Combine and Output
 indicators <- bind_rows(ltdb, acs_2012, acs_2020) %>% 
   mutate(`Percent Above Poverty` = 100 - `Percent in Poverty, Total`,
          GEOID = as.character(GEOID)) %>%
-  select(YEAR, STATE, COUNTY, GEOID, `Total Pop`, 
+  select(YEAR, STATE, GEOID, `Total Pop`, 
          `Median Household Income, Total`,
          `Percent Non-Hispanic White`, `Percent Above Poverty`,
          `Percent Owner-Occupied Units`, `Percent Vacant Units`,
@@ -45,11 +27,26 @@ indicators <- bind_rows(ltdb, acs_2012, acs_2020) %>%
          `Percent Structures more than 30 years old`, 
          `Percent with 4-year College Degree or More`,
          `Households in neighborhood 10 years or less`) %>%
-  rename("Median Household Income" = "Median Household Income, Total")
+  rename("Median Household Income" = "Median Household Income, Total") %>%
+  left_join(places_names, by = c("GEOID"))
+
 
 saveRDS(indicators, "outputs/indicators.RDS")
 
+# Create long format for indicators data
+indicators_long <- indicators %>%
+  select(GEOID, YEAR, STATE, NAME, `Total Pop`,
+         `Median Rent`, 
+         `Median Household Income`,
+         `Percent with 4-year College Degree or More`, 
+         `Median Home Value`,
+         `Percent Above Poverty`,
+         `Percent Non-Hispanic White`,
+         `Percent Structures more than 30 years old`,
+         `Households in neighborhood 10 years or less`) %>%
+  gather(key = "Measure", value = "Value", -YEAR, -STATE, -NAME, -GEOID, -`Total Pop`) 
 
+saveRDS(indicators_long, "outputs/indicators_long.RDS")
 
 # Process Outcomes Data --------
 

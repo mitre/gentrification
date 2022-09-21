@@ -1,0 +1,82 @@
+---
+title: "Census-Based Gentrification Methods"
+output: 
+  html_notebook: 
+    toc: true
+    toc_depth: 3
+    toc_float: true
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(tmap)
+library(tigris)
+library(sf)
+library(MITREShiny)
+library(DT)
+library(plotly)
+library(rgdal)
+
+# Read in data ----
+tracts <- readRDS("../outputs/geo_tracts.RDS")
+st_crs(tracts) = 4326
+
+indicators <- readRDS("../outputs/indicators.RDS") %>%
+  mutate(STATE_FIP = substr(GEOID, 1,2),
+         COUNTY_FIP = substr(GEOID, 3,5)) 
+outcomes <- readRDS("../outputs/outcomes.RDS")
+
+  
+holc_colors <- c(
+  "A" = "#759e64", # green
+  "B" = "#75a3b6", # blue
+  "C" = "#c5c473", # yellow
+  "D" = "#c27e8d" # red
+)
+
+gent_colors <- c(
+  "Not Eligible" = "#D0E1D4",  
+  "Positive Indicator" = "#0C6291", 
+  "Still Susceptible" = "#C05746" 
+)
+fipsnames_cw <- unique(indicators[,c("STATE", "COUNTY", "STATE_FIP", "COUNTY_FIP")])
+
+theme_set(theme_minimal()) +
+  theme(plot.title = element_text(hjust=0.5),
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+
+```{r core-explore, echo=FALSE, message=FALSE,}
+inputPanel(
+    sliderInput("eligibility_mhi", "Select Elgibility Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.01), 
+    
+    sliderInput("determination_mhi", "Select Determination Threshold",
+                min = 0, max = 1, value = 0.5, step = 0.01),
+    
+    actionButton("update_mhi", "Update")
+  )
+
+eligibilitythresh <- eventReactive(input$update_mhi, {
+  input$eligibility_mhi
+})
+
+determinationthresh <- eventReactive(input$update_mhi, {
+  input$determination_mhi
+})
+
+renderText({
+    paste("Eligibility is ", eligibilitythresh())
+})
+
+renderText({
+    paste("Determination is ", determinationthresh())
+})
+```
+
