@@ -10,34 +10,13 @@ The following libraries and related dependencies are used to generate this inter
 
     # From RCRAN
 
-    ## Data Processing
-    install.packages("dplyr")
-    install.packages("tidyr")
-    install.packages("foreign") 
-
-    ## Census API
-    install.packages("tidycensus")
-
-    ## Shiny
-    install.packages("shiny")
-
-    ## Mapping 
-    install.packages("tmap")
-    install.packages("tigris")
-    install.packages("sf")
-    install.packages("rgdal")
-
-    ## Visuals
-    install.packages("ggplot2")
-    install.packages("DT")
-    install.packages("plotly")
-
-
-    # From MCRAN (MITRE's internal R packages) or Artifcatory
-
-    install.packages("MITREShiny",
-                      repos=c("https://mcran.mitre.org"))
-    library(MITREShiny)
+    install.packages(c(
+        "dplyr", "tidyr", "foreign", # Data Processing
+        "tidycensus", # Census API
+        "shiny", # Shiny
+        "tmap", "tigris", "sf", "rgdal", # Geospatial
+        "ggplot2", "DT", "plotly" # Visuals
+    )
 
 ## File Structure
 
@@ -80,7 +59,6 @@ All data used in this project is publicly available:
 
 For more information, please contact Karen Jiang [kjiang\@mitre.org](mailto:kjiang@mitre.org){.email} or Hannah De los Santos [hdelossantos\@mitre.org](mailto:hdelossantos@mitre.org){.email}.
 
-## License
 
 ## Data Rights
 
