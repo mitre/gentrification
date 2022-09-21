@@ -79,7 +79,7 @@ Two common concepts are used in defining gentrification.
 
 Indicators can be used to define eligibility, determination, or both.
 
-In addition to areal indicators, time period of evaluation and reference geographic region are also important decisions which may impact the quantification of tracts as gentrified
+In addition to areal indicators, time period of evaluation and reference geographic region are also important decisions which may impact the quantification of tracts as gentrified.
 
 
 Click on the tabs below to see how you can replicate different gentrification methodologieis with the tool. 
@@ -995,17 +995,17 @@ morans_i <- reactive({
 
 interpretation_observed <- reactive({
   case_when(
-    morans_i()$observed >= 0.75 ~ "This inidcates that the distribution of gentrification indicators is a <b>highly clustered</b> spatial process.",
+    morans_i()$observed >= 0.75 ~ "This inidcates that the distribution of gentrification indicators is a highly clustered spatial process.",
     morans_i()$observed >= 0.25 &
-      morans_i()$observed < 0.75 ~ "This indicates that the distribution of gentrification indicators is a <b>moderately clustered</b> spatial process.",
+      morans_i()$observed < 0.75 ~ "This indicates that the distribution of gentrification indicators is a moderately clustered spatial process.",
     morans_i()$observed > 0 &
-      morans_i()$observed < 0.25 ~ "This indicates that the distribution of gentrification indicators is a <b>slightly clustered spatial process, though close to random.</b>",
-    morans_i()$observed == 0 ~ "This indicates that the distribution of gentrification indicators is a <b>highly random</b> spatial process.",
+      morans_i()$observed < 0.25 ~ "This indicates that the distribution of gentrification indicators is a slightly clustered spatial process, though close to random.",
+    morans_i()$observed == 0 ~ "This indicates that the distribution of gentrification indicators is a highly random spatial process.",
     morans_i()$observed >= -0.25 &
-      morans_i()$observed < 0 ~ "This indicates that the distribution of gentrification indicators is a <b>slightly dispersed spatial process, though close to random.</b>",
+      morans_i()$observed < 0 ~ "This indicates that the distribution of gentrification indicators is a slightly dispersed spatial process, though close to random.",
     morans_i()$observed >= -0.75 &
-      morans_i()$observed < -0.25 ~ "This indicates that the distribution of gentrification indicators is a <b>moderately dispersed</b> spatial process.",
-    morans_i()$observed < -0.75 ~ "This indicates that the distribution of gentrification indicators is a <b>highly dispersed</b> spatial process"
+      morans_i()$observed < -0.25 ~ "This indicates that the distribution of gentrification indicators is a moderately dispersed spatial process.",
+    morans_i()$observed < -0.75 ~ "This indicates that the distribution of gentrification indicators is a highly dispersed spatial process"
   )
 })
 
@@ -1013,8 +1013,8 @@ interpretation_observed <- reactive({
 interpretation_pvalue <- reactive({
   ifelse(
     morans_i()$p.value < 0.05,
-    "At a signficance level of 0.05, we would <b>reject the null hypothesis</b> that the number of gentrification indicators is randomly dispersed.",
-    "At a signficance level of 0.05, we would <b>fail to reject the null hypothesis</b> that the number of gentrification indicators is randomly dispersed."
+    "At a signficance level of 0.05, we would reject the null hypothesis that the number of gentrification indicators is randomly dispersed.",
+    "At a signficance level of 0.05, we would fail to reject the null hypothesis that the number of gentrification indicators is randomly dispersed."
   )
 })
 
