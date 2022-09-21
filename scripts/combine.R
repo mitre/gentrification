@@ -1,6 +1,7 @@
 # Creating Dataset of Features for 2010 CTs
-library(tidyverse)
-
+library(dplyr)
+library(tidyr)
+library(stringr)
 
 # Process Indicators Data --------
 
