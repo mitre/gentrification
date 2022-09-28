@@ -48,27 +48,27 @@ get_acs_vars <- function(year){
       vac = "B25002_003", # Vacant
       
       hs = "B15003_017", # high school or less
-      bachelors = "B15003_022", 
-      masters = "B15003_023",
-      professional = "B15003_024", 
-      doctorate = "B15003_025", 
+      bachelors = "B15003_022", # bachelors degree
+      masters = "B15003_023", # masters degree
+      professional = "B15003_024", # professional degree
+      doctorate = "B15003_025", # doctorate degree
       ag25up = "B15003_001", # denominator for education, population 25+
 
       built_tot = "B25034_001",  # year structure built
-      built_within5 = "B25034_002",
-      built_5to10 = "B25034_003",
-      built_10to20 = "B25034_004",
-      built_20to30 = "B25034_005",
+      built_within5 = "B25034_002", # built within past 5 years
+      built_5to10 = "B25034_003", # built within past 5-10 years
+      built_10to20 = "B25034_004", # built within past 10-20 years
+      built_20to30 = "B25034_005", # built within past 20-30 years
 
 
       moved_tot = "B25038_001", # tenure by year householder moved into unit
-      moved_o_1 = "B25038_003", # OWNER
-      moved_o_2 = "B25038_004",
-      moved_o_3 = "B25038_005", #used for 2020 only
+      moved_o_1 = "B25038_003", # Owner occupied:!!Moved in 2017 or later
+      moved_o_2 = "B25038_004", # Owner occupied:!!Moved in 2015 to 2016
+      moved_o_3 = "B25038_005", # Owner occupied:!!Moved in 2010 to 2014 used for 2020 only
       
-      moved_r_1 = "B25038_010", # RENTER
-      moved_r_2 = "B25038_011",
-      moved_r_3 = "B25038_012",  #used for 2020 only
+      moved_r_1 = "B25038_010", # Renter occupied:!!Moved in 2017 or later
+      moved_r_2 = "B25038_011", # Renter occupied:!!Moved in 2015 to 2016
+      moved_r_3 = "B25038_012", # Renter occupied:!!Moved in 2010 to 2014 used for 2020 only
       
       total_employ = "C18120_001", # Denominator: Total 
       laborforce = "C18120_002", # Number in laborforce
