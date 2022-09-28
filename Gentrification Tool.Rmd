@@ -1042,7 +1042,139 @@ renderText(paste(
 ## Urban Displacement Typologies
 
 Compare your selected method with Urban Displacement's Typologies. 
-```{r}
+```{r, echo = FALSE}
+udp_gitlab <- "https://raw.githubusercontent.com/urban-displacement/displacement-typologies/main/data/downloads_for_public/" 
+
+inputPanel(
+  selectInput("udp_city", 
+                label = "Choose a City to compare your selected method with classifications :",
+                choices = c("Atlanta", "Chicago", "Denver", "Los Angeles", "San Francisco", "Seattle"), 
+                selected = "Atlanta")
+)
+
+
+get_udp_data <- reactive({
+  if (input$udp_city == "Atlanta") {
+    data <- read.csv(
+        file.path(udp_gitlab, "atlanta.csv"),
+        colClasses = c("character", "character")
+    )
+  } else if (input$udp_city == "Chicago") {
+    data <- read.csv(
+        file.path(udp_gitlab, "chicago.csv"),
+        colClasses = c("character", "character")
+    )
+  } else if (input$udp_city == "Denver") {
+    data <- read.csv(
+        file.path(udp_gitlab, "denver.csv"),
+        colClasses = c("character", "character")
+    )
+  } else if (input$udp_city == "Los Angeles") {
+    data <- read.csv(
+        file.path(udp_gitlab, "losangeles.csv"),
+        colClasses = c("character", "character")
+    )
+  } else if (input$udp_city == "San Francisco") {
+    data <- read.csv(
+        file.path(udp_gitlab, "sanfrancisco.csv"),
+        colClasses = c("character", "character")
+    )
+  } else if (input$udp_city == "Seattle") {
+    data <- read.csv(
+        file.path(udp_gitlab, "seattle.csv"),
+        colClasses = c("character", "character")
+    )
+  } 
+  
+  return(data)
+})
+
+start_udp <- reactive({
+  data %>%
+    filter(YEAR == input$range[1],
+           GEOID %in% get_udp_data()$GEOID) %>% 
+  group_by(YEAR, Measure) %>%
+  mutate(Rank = percent_rank(Value)) %>%
+  ungroup()})
+
+end_udp <- reactive({
+  data %>%
+    filter(YEAR == input$range[2],
+           GEOID %in% get_udp_data()$GEOID) %>% 
+  group_by(YEAR, STATE, Measure) %>%
+  mutate(Rank = percent_rank(Value)) %>%
+  ungroup()
+})
+
+start_end_udp <- reactive({
+  inner_join(start_udp(), end_udp(),
+               by = c("GEOID", "Measure"),
+               suffix = c(" Start", " End")
+  )
+})
+
+tract_measures_udp_matched <- reactive({
+  tracts %>%
+    filter(GEOID %in% get_udp_data()$GEOID) %>%
+    left_join(.,measures(), by = "GEOID") %>% st_as_sf()
+})
+
+tract_measures_udp_original <- reactive({
+  tracts %>%
+    filter(GEOID %in% get_udp_data()$GEOID) %>%
+    left_join(., get_udp_data(), by = "GEOID") %>% st_as_sf()
+})
+
+displacement_typologies_pal <- 
+        c(
+            # '#e3dcf5',
+            '#87CEFA',#cbc9e2', # "#f2f0f7", 
+            '#6495ED',#5b88b5', #"#6699cc", #light blue              
+            '#9e9ac8', #D9D7E8', #"#cbc9e2", #D9D7E8     
+            # "#9e9ac8",
+            '#756bb1', #B7B6D3', #"#756bb1", #B7B6D3
+            '#54278f', #8D82B6', #"#54278f", #8D82B6
+            '#FBEDE0', #"#ffffd4", #FBEDE0
+            # '#ffff85',
+            '#F4C08D', #"#fed98e", #EE924F
+            '#EE924F', #"#fe9929", #EE924F
+            '#C95123', #"#cc4c02", #C75023
+            "#8f8f8f", # High student pop
+            "#C0C0C0"
+    )
+
+# renderDataTable(
+#   datatable({
+#     tract_measures_udp_matched()
+#     })
+# )
+
+  renderTmap({
+  tm_shape(tract_measures_udp_matched()) +
+    tm_polygons(col = "Still Susceptible",
+                alpha = 0.5,
+                palette = c("#FFFFFF", gent_colors[3]),
+                legend.format = list(digits = 0)
+    ) +
+    tm_shape(tract_measures_udp_matched()) +
+    tm_polygons(col = "Positive Indicator",
+                alpha = 0.5,
+                palette = c("#FFFFFF", gent_colors[2]),
+                legend.format = list(digits = 0),
+                popup.vars = c("Positive Indicator",
+                               "Still Susceptible",
+                               "Not Eligible"),
+                popup.format = list(digits = 0))
+}) 
+
+  
+  renderTmap({
+    tm_shape(tract_measures_udp_original()) +
+      tm_polygons(col = "Typology",
+                  alpha = 0.5,
+                  palette = displacement_typologies_pal)
+  })
+  
 
 ```
 
