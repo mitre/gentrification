@@ -57,6 +57,12 @@ holc <- read.csv("raw data/All_Population_Weighted_HOLC_Grades_pt2_Threshold.csv
 # Creates dataframe with a tract's GEOID, state, place, and geometry.
 # N.B. tracts can be split by the place borders in which they are contained.
 if (!file.exists("outputs/final_places_tracts.RDS")) {
+  
+  run_code <- readline("This code will take ~6 hours to run. Do you want to run it? [y/n]")
+  
+  if (run_code != "y") {
+    stop("Code execution halted.")
+  }
   # Creates table with abbreviated state and corresponding GEOID
   state_lookup <- states() %>%
     filter(STUSPS %in% state.abb) %>%
