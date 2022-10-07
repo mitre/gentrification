@@ -809,21 +809,18 @@ renderTmap({
                 popup.format = list(digits = 0))
 }) 
 
-renderDataTable(
-  datatable({
-    measures()
-  },
-  extensions = 'Buttons',
-  options = list(
-    dom = 'lBtip',
-    buttons = c('copy', 'excel', 'csv'),
-    pageLength = 10,
-    lengthMenu = list(c(10,25,50,-1),
-                      c('10', '25', '50', 'All'))
-  ),
-  class = "display"
-  )
-)
+renderDataTable(datatable({
+  measures()
+},
+extensions = 'Buttons',
+options = list(
+  dom = 'lBtip',
+  buttons = c('copy', 'excel', 'csv'),
+  pageLength = 10,
+  lengthMenu = list(c(10, 25, 50, -1),
+                    c('10', '25', '50', 'All'))
+),
+class = "display"))
 ```
 
 # Compare Results
@@ -1043,7 +1040,8 @@ renderText(paste(
 
 Compare your selected method with Urban Displacement's Typologies. 
 ```{r, echo = FALSE}
-udp_gitlab <- "https://raw.githubusercontent.com/urban-displacement/displacement-typologies/main/data/downloads_for_public/" 
+## TODO download csvs from gitlab and read from files
+udp_gitlab <- "raw data/UrbanDisplacementTypologies/"
 
 inputPanel(
   selectInput("udp_city", 
@@ -1113,10 +1111,114 @@ start_end_udp <- reactive({
   )
 })
 
+# mhi_udp <- reactive({
+#   start_end_udp() %>%
+#     filter(Measure == "Median Household Income") %>%
+#     add_gentrification_label(input_eligibility = mhi_et(), 
+#                              input_determination = mhi_dt())
+# })
+# 
+# rent_udp <- reactive({
+#   start_end_udp() %>%
+#     filter(Measure == "Median Rent") %>%
+#     add_gentrification_label(input_eligibility = rent_et(),
+#                              input_determination = rent_dt())
+# })
+# 
+# edu_udp <- reactive({
+#   start_end_udp() %>%
+#     filter(Measure == "Median Household Income") %>%
+#     add_gentrification_label(input_eligibility = edu_et(),
+#                              input_determination = edu_dt())
+# })
+# 
+# 
+# mhv_udp <- reactive({
+#   start_end_udp() %>%
+#     filter(Measure == "Median Home Value") %>%
+#     add_gentrification_label(input_eligibility = mhv_et(),
+#                              input_determination = mhv_dt())
+# })
+# 
+# 
+# nhw_udp <- reactive({
+#   start_end_udp() %>%
+#     filter(Measure == "Percent Non-Hispanic White") %>%
+#     add_gentrification_label(input_eligibility = nhw_et(),
+#                              input_determination = nhw_dt())
+# })
+# 
+# 
+# hsa_udp <- reactive({
+#   start_end_udp() %>%
+#     filter(Measure == "Percent Structures more than 30 years old") %>%
+#     add_gentrification_label(input_eligibility = hsa_et(),
+#                              input_determination = hsa_dt())
+# })
+# 
+# 
+# ten_udp <- reactive({
+#   start_end_udp() %>%
+#     filter(Measure == "Households in neighborhood 10 years or less") %>%
+#     add_gentrification_label(input_eligibility = ten_et(),
+#                              input_determination = ten_dt())
+# })
+# 
+# pov_udp <- reactive({
+#   start_end_udp() %>%
+#     filter(Measure == "Percent Above Poverty") %>%
+#     add_gentrification_label(input_eligibility = fpl_et(),
+#                              input_determination = fpl_dt())
+# })
+
+start_end_labelled_udp <- reactive({
+  start_end_udp() %>%
+    mutate(Label = "")%>%
+    add_gentrification_label_full("Median Rent", 
+                                  input$eligibility_rent, 
+                                  input$determination_rent) %>%
+    add_gentrification_label_full("Median Household Income", 
+                                  input$eligibility_mhi, 
+                                  input$determination_mhi ) %>%
+    add_gentrification_label_full("Percent with 4-year College Degree or More",
+                                  input$eligibility_edu, 
+                                  input$determination_edu) %>%
+    add_gentrification_label_full("Median Home Value",
+                                  input$eligibility_mhv, 
+                                  input$determination_mhv) %>%
+    add_gentrification_label_full("Percent Above Poverty",
+                                  input$eligibility_pov, 
+                                  input$determination_pov) %>%
+    add_gentrification_label_full("Percent Non-Hispanic White",
+                                  input$eligibility_nhw, 
+                                  input$determination_nhw) %>%
+    add_gentrification_label_full("Percent Structures more than 30 years old",
+                                  input$eligibility_hsa, 
+                                  input$determination_hsa) %>%
+    add_gentrification_label_full("Households in neighborhood 10 years or less",
+                                  input$eligibility_ten, 
+                                  input$determination_ten) %>%
+    filter(Measure %in% input$measures) %>%
+    select(GEOID, Measure, Label) %>%
+    unique() %>%
+    pivot_wider(names_from = Measure, 
+                values_from = Label)
+    
+})
+
+measures_udp <- reactive({
+  start_end_labelled_udp() %>%
+    mutate(`Positive Indicator` = as.integer(rowSums(. == "Positive Indicator")),
+           `Not Eligible` = as.integer(rowSums(. == "Not Eligible")),
+           `Still Susceptible` = as.integer(rowSums(. == "Still Susceptible")))
+})
+
+
+
 tract_measures_udp_matched <- reactive({
   tracts %>%
     filter(GEOID %in% get_udp_data()$GEOID) %>%
-    left_join(.,measures(), by = "GEOID") %>% st_as_sf()
+    left_join(.,measures_udp(), by = "GEOID") %>% st_as_sf()
 })
 
 tract_measures_udp_original <- reactive({
@@ -1143,38 +1245,113 @@ displacement_typologies_pal <-
             "#C0C0C0"
     )
 
-# renderDataTable(
-#   datatable({
-#     tract_measures_udp_matched()
-#     })
-# )
+renderDataTable(
+  datatable({
+    start_end_labelled_udp()
+    })
+  )
 
-  renderTmap({
+renderTmap({
   tm_shape(tract_measures_udp_matched()) +
-    tm_polygons(col = "Still Susceptible",
-                alpha = 0.5,
-                palette = c("#FFFFFF", gent_colors[3]),
-                legend.format = list(digits = 0)
+    tm_polygons(
+      col = "Still Susceptible",
+      alpha = 0.5,
+      palette = c("#FFFFFF", gent_colors[3]),
+      legend.format = list(digits = 0)
     ) +
     tm_shape(tract_measures_udp_matched()) +
-    tm_polygons(col = "Positive Indicator",
-                alpha = 0.5,
-                palette = c("#FFFFFF", gent_colors[2]),
-                legend.format = list(digits = 0),
-                popup.vars = c("Positive Indicator",
-                               "Still Susceptible",
-                               "Not Eligible"),
-                popup.format = list(digits = 0))
-}) 
+    tm_polygons(
+      col = "Positive Indicator",
+      alpha = 0.5,
+      palette = c("#FFFFFF", gent_colors[2]),
+      legend.format = list(digits = 0),
+      popup.vars = c("Positive Indicator",
+                     "Still Susceptible",
+                     "Not Eligible"),
+      popup.format = list(digits = 0)
+    )
+})
 
+
+renderTmap({
+  tm_shape(tract_measures_udp_original()) +
+    tm_polygons(col = "Typology",
+                alpha = 0.5,
+                palette = displacement_typologies_pal)
+})
+```
+
+
+
+```{r, echo = FALSE}
+
+inputPanel(
+  selectInput("udp_typology", 
+                label = "Choose a UDP Typology to compare how your selected method relates:",
+                choices = c("Advanced Gentrification",
+                            "Stable Moderate/Mixed Income",           
+                            "At Risk of Gentrification",           
+                            "Low-Income/Susceptible to Displacement",
+                            "At Risk of Becoming Exclusive",          
+                            "Stable/Advanced Exclusive",              
+                            "Early/Ongoing Gentrification",
+                            "Ongoing Displacement", 
+                            "Unavailable or Unreliable Data",
+                            "High Student Population",
+                            "Becoming Exclusive"), 
+                selected = "Advanced Gentrification")
+)
+
+udp_type_matrix <- reactive({
   
-  renderTmap({
-    tm_shape(tract_measures_udp_original()) +
-      tm_polygons(col = "Typology",
-                  alpha = 0.5,
-                  palette = displacement_typologies_pal)
-  })
+  df <- get_udp_data() %>%
+    left_join(measures_udp(), by = "GEOID")
   
+  ss <- df %>% filter(Typology == input$udp_typology) %>%
+    group_by(`Still Susceptible`) %>%
+    count() %>%
+    rename(n_indicator = `Still Susceptible`,
+           `Still Susceptible` = n)
+  
+  
+  ne <- df %>% filter(Typology == input$udp_typology) %>%
+    group_by(`Not Eligible`) %>%
+    count() %>%
+    rename(n_indicator = `Not Eligible`,
+           `Not Eligible` = n)
+  
+  pi <- df %>% filter(Typology == input$udp_typology) %>%
+    group_by(`Positive Indicator`) %>%
+    count() %>%
+    rename(n_indicator = `Positive Indicator`,
+           `Positive Indicator` = n)
+  
+  full_join(ss, ne, by = "n_indicator") %>%
+    full_join(pi, by = "n_indicator") %>%
+    filter(!is.na(n_indicator)) %>%
+    arrange(n_indicator) %>%
+    mutate_at(c("Still Susceptible", "Not Eligible", "Positive Indicator"),
+              replace_na,
+              0) %>%
+    rename(
+      "Number of Indicators" = n_indicator
+    ) 
+})
+
+renderPlot({
+  udp_type_matrix() %>%
+    gather(key = "Indicator Type",
+           value = "Number of Tracts",
+           -`Number of Indicators`) %>%
+    ggplot(aes(y = `Number of Indicators`,
+               x = `Indicator Type`,
+               fill = `Number of Tracts`)) +
+    geom_tile() +
+    geom_text(aes(label = `Number of Tracts`), color = "black") +
+    scale_fill_gradient(low = "lightgray", high = "steelblue") +
+    theme_minimal() +
+    labs(title = input$udp_typology)
+})
 
 ```
 
