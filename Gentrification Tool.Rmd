@@ -115,19 +115,25 @@ Only tracts with all 3 positive indicators of gentrification would be classified
 
 <hr>
 
-### Nation Neighborhood Indicators Partnership (NHIP)
+### National Neighborhood Indicators Partnership (NHIP)
 
 In 2019, the National Neighborhood Indicators Partnership released a "Guide to Measuring Neighborhood Change to Understand and Prevent Displacement".
 
 This <a href="https://www.urban.org/sites/default/files/publication/100135/guide_to_measuring_neighborhood_change_to_understand_and_prevent_displacement.pdf" target="_blank">document</a> provides a guide which helps users consider analytic approaches, indicators, and data sources to measure neighborhood change as specified for the community to prevent displacement. 
 
+This dashboard can help with decisions around a few key considerations when creating a measurement approach around gentrification. For instance:
+
+1. **Geography:** There are two levels of geography researchers need to consider when identifying gentrifying neighborhoods: 1) the geographic unit of analysis and 2) the geographic scope. The unit analysis might be thought of as a "neighborhood unit" - often times this is practically defined at the census block, census tract, or zip code level, and reflect the level at which a particular intervention might be implemented. The geographic scope is the larger boundary which defines the set of all neighborhoods that each unit is compared to in order to understand the sense of relative change. 
+Our tool allows for a dynamic selection of the geographic scope, though the use of Census Places. Users can use the multiple-select to build up the geographies to include in the overall boundary, allowing for a wider base of comparison. This tool does not, however, allow the user to change the unit of analysis, and instead is fixed at the census tract level, primarily due to the geographic granularity of other datasets within the tool.
+
+2. **Time Period:** This tool contains 6 decades of decennial demographic and neighborhood data, from 1970 to 2020. Users can select comparisons at the beginning and end of decade intervals. One limitation of this tool is that it does not enable the selection of individual years of data, as such it would not be able to detect "rapidly" gentrifying area, or change that is happening over the course if a couple years. 
+
+3. **Indicators and Data Sources:** The NHIP guide contains organizes indicators and data sources by Resident Characteristics, Housing Markets and Conditions, Economic Activity and Investment, and Neighborhood Conditions. This tool contains 8 indicators which primarily fall under Resident Characteristics and Housing Markets and Conditions. 
+
+
 <hr>
 
 
-### Lance Freeman
-
-
-<hr>
 
 # Explore Indicators
 
@@ -803,21 +809,18 @@ renderTmap({
                 popup.format = list(digits = 0))
 }) 
 
-renderDataTable(
-  datatable({
-    measures()
-  },
-  extensions = 'Buttons',
-  options = list(
-    dom = 'lBtip',
-    buttons = c('copy', 'excel', 'csv'),
-    pageLength = 10,
-    lengthMenu = list(c(10,25,50,-1),
-                      c('10', '25', '50', 'All'))
-  ),
-  class = "display"
-  )
-)
+renderDataTable(datatable({
+  measures()
+},
+extensions = 'Buttons',
+options = list(
+  dom = 'lBtip',
+  buttons = c('copy', 'excel', 'csv'),
+  pageLength = 10,
+  lengthMenu = list(c(10, 25, 50, -1),
+                    c('10', '25', '50', 'All'))
+),
+class = "display"))
 ```
 
 # Compare Results
@@ -1033,6 +1036,264 @@ renderText(paste(
 
 ```
 
+## Urban Displacement Typologies
+
+Compare your selected method with Urban Displacement's Typologies. 
+```{r, echo = FALSE}
+## TODO download csvs from gitlab and read from files
+udp_gitlab <- "raw data/UrbanDisplacementTypologies/"
+
+inputPanel(
+  selectInput("udp_city", 
+                label = "Choose a City to compare your selected method with classifications :",
+                choices = c("Atlanta", "Chicago", "Denver", "Los Angeles", "San Francisco", "Seattle"), 
+                selected = "Atlanta")
+)
+
+
+get_udp_data <- reactive({
+  if (input$udp_city == "Atlanta") {
+    data <- read.csv(
+        file.path(udp_gitlab, "atlanta.csv"),
+        colClasses = c("character", "character")
+    )
+  } else if (input$udp_city == "Chicago") {
+    data <- read.csv(
+        file.path(udp_gitlab, "chicago.csv"),
+        colClasses = c("character", "character")
+    )
+  } else if (input$udp_city == "Denver") {
+    data <- read.csv(
+        file.path(udp_gitlab, "denver.csv"),
+        colClasses = c("character", "character")
+    )
+  } else if (input$udp_city == "Los Angeles") {
+    data <- read.csv(
+        file.path(udp_gitlab, "losangeles.csv"),
+        colClasses = c("character", "character")
+    )
+  } else if (input$udp_city == "San Francisco") {
+    data <- read.csv(
+        file.path(udp_gitlab, "sanfrancisco.csv"),
+        colClasses = c("character", "character")
+    )
+  } else if (input$udp_city == "Seattle") {
+    data <- read.csv(
+        file.path(udp_gitlab, "seattle.csv"),
+        colClasses = c("character", "character")
+    )
+  } 
+  
+  return(data)
+})
+
+start_udp <- reactive({
+  data %>%
+    filter(YEAR == input$range[1],
+           GEOID %in% get_udp_data()$GEOID) %>% 
+  group_by(YEAR, Measure) %>%
+  mutate(Rank = percent_rank(Value)) %>%
+  ungroup()})
+
+end_udp <- reactive({
+  data %>%
+    filter(YEAR == input$range[2],
+           GEOID %in% get_udp_data()$GEOID) %>% 
+  group_by(YEAR, STATE, Measure) %>%
+  mutate(Rank = percent_rank(Value)) %>%
+  ungroup()
+})
+
+start_end_udp <- reactive({
+  inner_join(start_udp(), end_udp(),
+               by = c("GEOID", "Measure"),
+               suffix = c(" Start", " End")
+  )
+})
+
+start_end_labelled_udp <- reactive({
+  start_end_udp() %>%
+    mutate(Label = "")%>%
+    add_gentrification_label_full("Median Rent", 
+                                  input$eligibility_rent, 
+                                  input$determination_rent) %>%
+    add_gentrification_label_full("Median Household Income", 
+                                  input$eligibility_mhi, 
+                                  input$determination_mhi ) %>%
+    add_gentrification_label_full("Percent with 4-year College Degree or More",
+                                  input$eligibility_edu, 
+                                  input$determination_edu) %>%
+    add_gentrification_label_full("Median Home Value",
+                                  input$eligibility_mhv, 
+                                  input$determination_mhv) %>%
+    add_gentrification_label_full("Percent Above Poverty",
+                                  input$eligibility_pov, 
+                                  input$determination_pov) %>%
+    add_gentrification_label_full("Percent Non-Hispanic White",
+                                  input$eligibility_nhw, 
+                                  input$determination_nhw) %>%
+    add_gentrification_label_full("Percent Structures more than 30 years old",
+                                  input$eligibility_hsa, 
+                                  input$determination_hsa) %>%
+    add_gentrification_label_full("Households in neighborhood 10 years or less",
+                                  input$eligibility_ten, 
+                                  input$determination_ten) %>%
+    filter(Measure %in% input$measures) %>%
+    select(GEOID, Measure, Label) %>%
+    unique() %>%
+    pivot_wider(names_from = Measure, 
+                values_from = Label)
+    
+})
+
+measures_udp <- reactive({
+  start_end_labelled_udp() %>%
+    mutate(`Positive Indicator` = as.integer(rowSums(. == "Positive Indicator")),
+           `Not Eligible` = as.integer(rowSums(. == "Not Eligible")),
+           `Still Susceptible` = as.integer(rowSums(. == "Still Susceptible")))
+})
+
+
+
+tract_measures_udp_matched <- reactive({
+  tracts %>%
+    filter(GEOID %in% get_udp_data()$GEOID) %>%
+    left_join(.,measures_udp(), by = "GEOID") %>% st_as_sf()
+})
+
+tract_measures_udp_original <- reactive({
+  tracts %>%
+    filter(GEOID %in% get_udp_data()$GEOID) %>%
+    left_join(., get_udp_data(), by = "GEOID") %>% st_as_sf()
+})
+
+displacement_typologies_pal <- 
+        c(
+            # '#e3dcf5',
+            '#87CEFA',#cbc9e2', # "#f2f0f7", 
+            '#6495ED',#5b88b5', #"#6699cc", #light blue              
+            '#9e9ac8', #D9D7E8', #"#cbc9e2", #D9D7E8     
+            # "#9e9ac8",
+            '#756bb1', #B7B6D3', #"#756bb1", #B7B6D3
+            '#54278f', #8D82B6', #"#54278f", #8D82B6
+            '#FBEDE0', #"#ffffd4", #FBEDE0
+            # '#ffff85',
+            '#F4C08D', #"#fed98e", #EE924F
+            '#EE924F', #"#fe9929", #EE924F
+            '#C95123', #"#cc4c02", #C75023
+            "#8f8f8f", # High student pop
+            "#C0C0C0"
+    )
+
+renderDataTable(
+  datatable({
+    start_end_labelled_udp()
+    })
+  )
+
+renderTmap({
+  tm_shape(tract_measures_udp_matched()) +
+    tm_polygons(
+      col = "Still Susceptible",
+      alpha = 0.5,
+      palette = c("#FFFFFF", gent_colors[3]),
+      legend.format = list(digits = 0)
+    ) +
+    tm_shape(tract_measures_udp_matched()) +
+    tm_polygons(
+      col = "Positive Indicator",
+      alpha = 0.5,
+      palette = c("#FFFFFF", gent_colors[2]),
+      legend.format = list(digits = 0),
+      popup.vars = c("Positive Indicator",
+                     "Still Susceptible",
+                     "Not Eligible"),
+      popup.format = list(digits = 0)
+    )
+})
+
+
+renderTmap({
+  tm_shape(tract_measures_udp_original()) +
+    tm_polygons(col = "Typology",
+                alpha = 0.5,
+                palette = displacement_typologies_pal)
+})
+```
+
+
+
+```{r, echo = FALSE}
+
+inputPanel(
+  selectInput("udp_typology", 
+                label = "Choose a UDP Typology to compare how your selected method relates:",
+                choices = c("Advanced Gentrification",
+                            "Stable Moderate/Mixed Income",           
+                            "At Risk of Gentrification",           
+                            "Low-Income/Susceptible to Displacement",
+                            "At Risk of Becoming Exclusive",          
+                            "Stable/Advanced Exclusive",              
+                            "Early/Ongoing Gentrification",
+                            "Ongoing Displacement", 
+                            "Unavailable or Unreliable Data",
+                            "High Student Population",
+                            "Becoming Exclusive"), 
+                selected = "Advanced Gentrification")
+)
+
+udp_type_matrix <- reactive({
+  
+  df <- get_udp_data() %>%
+    left_join(measures_udp(), by = "GEOID")
+  
+  ss <- df %>% filter(Typology == input$udp_typology) %>%
+    group_by(`Still Susceptible`) %>%
+    count() %>%
+    rename(n_indicator = `Still Susceptible`,
+           `Still Susceptible` = n)
+  
+  
+  ne <- df %>% filter(Typology == input$udp_typology) %>%
+    group_by(`Not Eligible`) %>%
+    count() %>%
+    rename(n_indicator = `Not Eligible`,
+           `Not Eligible` = n)
+  
+  pi <- df %>% filter(Typology == input$udp_typology) %>%
+    group_by(`Positive Indicator`) %>%
+    count() %>%
+    rename(n_indicator = `Positive Indicator`,
+           `Positive Indicator` = n)
+  
+  full_join(ss, ne, by = "n_indicator") %>%
+    full_join(pi, by = "n_indicator") %>%
+    filter(!is.na(n_indicator)) %>%
+    arrange(n_indicator) %>%
+    mutate_at(c("Still Susceptible", "Not Eligible", "Positive Indicator"),
+              replace_na,
+              0) %>%
+    rename(
+      "Number of Indicators" = n_indicator
+    ) 
+})
+
+renderPlot({
+  udp_type_matrix() %>%
+    gather(key = "Indicator Type",
+           value = "Number of Tracts",
+           -`Number of Indicators`) %>%
+    ggplot(aes(y = `Number of Indicators`,
+               x = `Indicator Type`,
+               fill = `Number of Tracts`)) +
+    geom_tile() +
+    geom_text(aes(label = `Number of Tracts`), color = "black") +
+    scale_fill_gradient(low = "lightgray", high = "steelblue") +
+    theme_minimal() +
+    labs(title = input$udp_typology)
+})
+
+```
 
 <hr>
 <hr>
