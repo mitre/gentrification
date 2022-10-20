@@ -1111,66 +1111,6 @@ start_end_udp <- reactive({
   )
 })
 
-# mhi_udp <- reactive({
-#   start_end_udp() %>%
-#     filter(Measure == "Median Household Income") %>%
-#     add_gentrification_label(input_eligibility = mhi_et(), 
-#                              input_determination = mhi_dt())
-# })
-# 
-# rent_udp <- reactive({
-#   start_end_udp() %>%
-#     filter(Measure == "Median Rent") %>%
-#     add_gentrification_label(input_eligibility = rent_et(),
-#                              input_determination = rent_dt())
-# })
-# 
-# edu_udp <- reactive({
-#   start_end_udp() %>%
-#     filter(Measure == "Median Household Income") %>%
-#     add_gentrification_label(input_eligibility = edu_et(),
-#                              input_determination = edu_dt())
-# })
-# 
-# 
-# mhv_udp <- reactive({
-#   start_end_udp() %>%
-#     filter(Measure == "Median Home Value") %>%
-#     add_gentrification_label(input_eligibility = mhv_et(),
-#                              input_determination = mhv_dt())
-# })
-# 
-# 
-# nhw_udp <- reactive({
-#   start_end_udp() %>%
-#     filter(Measure == "Percent Non-Hispanic White") %>%
-#     add_gentrification_label(input_eligibility = nhw_et(),
-#                              input_determination = nhw_dt())
-# })
-# 
-# 
-# hsa_udp <- reactive({
-#   start_end_udp() %>%
-#     filter(Measure == "Percent Structures more than 30 years old") %>%
-#     add_gentrification_label(input_eligibility = hsa_et(),
-#                              input_determination = hsa_dt())
-# })
-# 
-# 
-# ten_udp <- reactive({
-#   start_end_udp() %>%
-#     filter(Measure == "Households in neighborhood 10 years or less") %>%
-#     add_gentrification_label(input_eligibility = ten_et(),
-#                              input_determination = ten_dt())
-# })
-# 
-# pov_udp <- reactive({
-#   start_end_udp() %>%
-#     filter(Measure == "Percent Above Poverty") %>%
-#     add_gentrification_label(input_eligibility = fpl_et(),
-#                              input_determination = fpl_dt())
-# })
-
 start_end_labelled_udp <- reactive({
   start_end_udp() %>%
     mutate(Label = "")%>%
