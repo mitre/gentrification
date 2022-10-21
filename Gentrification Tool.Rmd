@@ -1050,7 +1050,7 @@ inputPanel(
                 selected = "Atlanta")
 )
 
-
+# Read in different .csv depending on input city
 get_udp_data <- reactive({
   if (input$udp_city == "Atlanta") {
     data <- read.csv(
@@ -1087,6 +1087,7 @@ get_udp_data <- reactive({
   return(data)
 })
 
+# filter data based on year selection in the orignal input and geography selections from the UDP selected geography
 start_udp <- reactive({
   data %>%
     filter(YEAR == input$range[1],
