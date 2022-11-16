@@ -82,7 +82,7 @@ Indicators can be used to define eligibility, determination, or both.
 In addition to areal indicators, time period of evaluation and reference geographic region are also important decisions which may impact the quantification of tracts as gentrified.
 
 
-Click on the tabs below to see how you can replicate different gentrification methodologieis with the tool. 
+Click on the tabs below to see how you can replicate different gentrification methodologies with the tool. 
 
 ### Governing Method
 
@@ -285,7 +285,7 @@ The selected thresholds will persist throughout the rest of the document.
 -   Eligibility threshold characterizes which set of tracts can be considered candidates for gentrification.
 -   Determination thresholds characterize what change is significant to capture neighborhood change.
 
-## Median House Income
+## Median Household Income
 
 ```{r mhi, echo=FALSE}
 # Input panel information
@@ -1050,7 +1050,7 @@ inputPanel(
                 selected = "Atlanta")
 )
 
-
+# Read in different .csv depending on input city
 get_udp_data <- reactive({
   if (input$udp_city == "Atlanta") {
     data <- read.csv(
@@ -1087,6 +1087,7 @@ get_udp_data <- reactive({
   return(data)
 })
 
+# filter data based on year selection in the orignal input and geography selections from the UDP selected geography
 start_udp <- reactive({
   data %>%
     filter(YEAR == input$range[1],

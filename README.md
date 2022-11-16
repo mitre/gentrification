@@ -1,5 +1,11 @@
 # Interactive Gentrification Definitions Explorer Tool
 
+This Interactive Gentrification Definitions Explorer tool is intended to help researchers, communities, and/or other interested groups build locally-informed methods to quantify gentrification within their own unique communities by using data, indicators, and methods from previously published works. By aggregating multiple data sources across 6 decades (1970s - 2020s) for all major metropolitan areas in the US (places with \>50 tracts), this interactive document provides a step-by-step walk through of several key considerations when determining which tracts may be experiencing gentrification within their communities.
+
+To use this document, users can to select a time frame (by decade span) and stackable geographies (Census Places) to view the way how their communities have changed with regard to 8 indicators (Median Household Income, Median Rent, Higher Education, Percent Non-Hispanic White, Housing Structure Age, Household Tenure, and Percent Above the Federal Poverty Level). Users can select any combination of indicators, and define the criteria for each indicator to select which tracts would be eligible for gentrification, and among those which would be positive indicators.
+
+Once users select the indicators and criteria, they can compare how their selected definitions of gentrification relate to various health outcomes, or compare their method with Urban Displacement's Gentrification Typologies. Finally, the tool allows for data downloads, which returns a .csv with census tract IDs and indicator labels to be used in any additional further analysis.
+
 ## Description
 
 The repository contains the data, processing scripts, and code required to create a customizable gentrification definition explorer tool, using RMarkdown with Shiny integration to create an [interactive document](https://rmarkdown.rstudio.com/lesson-14.html).
@@ -38,7 +44,9 @@ The following figure depicts the flow of data from source (green) through script
 
 ## Data
 
-All data used in this project is publicly available:
+All the original data and resulting output files directly used for this project can be downloaded directed from Gentrification Data Box link. <https://mitre.box.com/s/igd4vdj7tvqhwgitftxfjiemsrjv3v2s>
+
+The original data sources used in this project are publicly available:
 
 -   Longitudinal Tract Database (LTDB) [Diversity and Disparities (brown.edu)](https://s4.ad.brown.edu/Projects/Diversity/researcher/bridging.htm)
 
@@ -50,6 +58,8 @@ All data used in this project is publicly available:
 
 -   Redlining HOLC Data [Mapping Inequality (richmond.edu)](https://dsl.richmond.edu/panorama/redlining/)
 
+-   Urban Displacement Typologies [GitHub The Urban Displacement Project's Displacement Typology Map code](https://github.com/urban-displacement/displacement-typologies)
+
 ## Usage
 
 1.  run the following scripts in order: `acs_data_pull.R`, `ltdb_cleaning.R`, `combine.R`, and `geo.R`.
@@ -58,7 +68,6 @@ All data used in this project is publicly available:
 ## Contact
 
 For more information, please contact Karen Jiang [kjiang\@mitre.org](mailto:kjiang@mitre.org){.email} or Hannah De los Santos [hdelossantos\@mitre.org](mailto:hdelossantos@mitre.org){.email}.
-
 
 ## Data Rights
 

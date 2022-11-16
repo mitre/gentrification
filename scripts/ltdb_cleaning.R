@@ -1,15 +1,21 @@
-# Processing LTDB to clean format
+#  Process Longitudinal Tract Database (LTDB) to clean format
+
+# Author: Karen Jiang
+# Version: 2022-11-16
+
+# Packages
+library(foreign)
+library(tidyverse)
+
+# Parameters
+# setwd("path/to/cloned/repo/gentrification")
+#===============================================================
+# Code
 
 ## Identifies common columns between 1970 - 2000, need to use ACS for 2010 estimates
 ## https://s4.ad.brown.edu/projects/diversity/researcher/List%20of%20Available%20Variables.pdf
 ## https://s4.ad.brown.edu/projects/diversity/Researcher/LTBDDload/Dfiles/codebooks.pdf
 
-library(foreign)
-library(tidyverse)
-
-if (getwd() != "/Users/kjiang/Documents/MIP/gentrification") {
-  setwd("/Users/kjiang/Documents/MIP/gentrification")
-}
 
 # Read in Tract Files from 1970 - 2010
 filenames <- list.files("raw data/LTDB", pattern = "*.dbf", full.names = T)
@@ -115,4 +121,4 @@ ltdb_combined$COUNTY = tools::toTitleCase(as.character(ltdb_combined$COUNTY))
 
 # Write Out data  
 write.csv(ltdb_combined, "outputs/ltdb_combined.csv")
-write_rds(ltdb_combined, "outputs/ltdb_combined.RDS")
+#write_rds(ltdb_combined, "outputs/ltdb_combined.RDS")

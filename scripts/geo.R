@@ -1,5 +1,9 @@
 # Assign tracts to cities and places, create combined places geographies for cities
 
+# Author: AJ Liberatore
+# Version: 2022-11-16
+
+# Packages
 library(tigris)
 library(sp)
 library(sf)
@@ -7,6 +11,12 @@ library(ggplot2)
 library(dplyr)
 library(tidycensus)
 library(gridExtra)
+
+# Parameters
+# setwd("path/to/cloned/repo/gentrification")
+#===============================================================
+# Code
+
 
 
 ### geo_places.RDS
@@ -65,7 +75,7 @@ if (!file.exists("outputs/final_places_tracts.RDS")) {
   }
   # Creates table with abbreviated state and corresponding GEOID
   state_lookup <- states() %>%
-    filter(STUSPS %in% state.abb) %>%
+    dplyr::filter(STUSPS %in% state.abb) %>%
     st_drop_geometry() %>%
     pull(STATEFP, STUSPS)
   
@@ -78,12 +88,12 @@ if (!file.exists("outputs/final_places_tracts.RDS")) {
   
     # Pulls places within state
     state_place <- places %>%
-      filter(STATEFP == state) %>%
+      dplyr::filter(STATEFP == state) %>%
       select(STATEFP, NAME, geometry)
   
     # Pulls tracts within state
     state_tract <- tracts %>%
-      filter(STATEFP == state) %>%
+      dplyr::filter(STATEFP == state) %>%
       select(GEOID, geometry)
   
     # Pulls the geometries for all tracts cropped by places
