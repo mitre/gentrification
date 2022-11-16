@@ -1,7 +1,17 @@
-# Creating Dataset of Features for 2010 CTs
+# Combining ACS, LTDB, PLACES, HOLC grades, and Life Expectancy data
+
+# Author: Karen Jiang
+# Version: 2022-11-16
+
+# Packages
 library(dplyr)
 library(tidyr)
 library(stringr)
+
+# Parameters
+# setwd("path/to/cloned/repo/gentrification")
+#===============================================================
+# Code
 
 # Process Indicators Data --------
 

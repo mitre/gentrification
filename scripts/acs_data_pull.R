@@ -1,7 +1,17 @@
-library(tidycensus)
-library(tidyverse)
+# Pull data from American Community Survey (ACS) to parallel data available in LTDB
 
+# Author: Karen Jiang
+# Version: 2022-11-16
+
+# Packages
+library(tidyverse)
+library(tidycensus)
 # census_api_key("YOUR_KEY", install = T)
+
+# Parameters
+# setwd("path/to/cloned/repo/gentrification")
+#===============================================================
+# Code
 
 # Get present day ACS data -------
 
