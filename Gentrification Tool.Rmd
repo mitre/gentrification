@@ -61,8 +61,7 @@ theme_set(theme_minimal()) +
 
 Our neighborhoods are all unique places, shaped by the landscape, geography, resources, and the people who live in it. However, over time, our neighborhoods and communities change, businesses enter and leave, building are built up and torn down, and people move in and out. It is difficult to separate out the causes and the consequences of these types of changes and the many ways they interact and influence each other.
 
-However, certain patterns of change, with similar characteristics under similar circumstances occur with enough frequency such to be captured with certain terminology. 
-"Gentrification" initially coined by sociologist Ruth Glass
+However, certain patterns of neighborhood change occur with enough frequency under similar circumstances that they fit a described pattern. The term *gentrification*, coined in 1964 by Ruth Glass, was defined to capture patterns Glass observed in London, where "all or most of the original working-class occupiers are displaced, and the whole social character of the district is changed." However, this term has evolved over time, shifting and evolving in meaning, holding different connotations for different groups across diverse geography. As such, researchers who study gentrification both conceptualize and measure in various ways [@Bhavsar2020][@easton2019], and often times, these methods result in differing classifications [@preis2020].
 
 ## How do we measure it? {.tabset}
 
@@ -81,35 +80,33 @@ Indicators can be used to define eligibility, determination, or both.
 
 In addition to areal indicators, time period of evaluation and reference geographic region are also important decisions which may impact the quantification of tracts as gentrified.
 
-
-Click on the tabs below to see how you can replicate different gentrification methodologies with the tool. 
+Click on the tabs below to see how you can replicate different gentrification methodologies with the tool.
 
 ### Governing Method
 
-In 2015, *Governing: The Future of States and Localities*, published a <a href="https://www.governing.com/archive/gentrification-in-cities-governing-report.html" target="_blank">report</a> analyzing the landscape of gentrification in across the nation's 50 largest cities. 
+In 2015, *Governing: The Future of States and Localities*, published a <a href="https://www.governing.com/archive/gentrification-in-cities-governing-report.html" target="_blank">report</a> analyzing the landscape of gentrification in across the nation's 50 largest cities.
 
 Their <a href="https://www.governing.com/archive/gentrification-report-methodology.html" target="_blank">methodology</a> used to determine tract eligibility is described as follows:
 
 **Eligibility**
 
-1. The tract had a population of at least 500 residents at the beginning and end of a decade and was located within a central city
-2. The tract's median household income was in the bottom 40th percentile when compared to all tracts within its metro area at the beginning of the decade
-3. The tracts median home value was in the bottom 40th percentile when compared to all tracts within its metro area at the beginning of the decade. 
+1.  The tract had a population of at least 500 residents at the beginning and end of a decade and was located within a central city
+2.  The tract's median household income was in the bottom 40th percentile when compared to all tracts within its metro area at the beginning of the decade
+3.  The tracts median home value was in the bottom 40th percentile when compared to all tracts within its metro area at the beginning of the decade.
 
 **Determination**
 
-1. An increase in the tract's educational attainment, as measured by the percentage of residents age 25 and over holding bachelor's degrees, was in the top third percentile of all tracts within a metro area.
-2. A tract's median home value increase when adjusted for inflation.
-3. The percentage increase in a tract's inflation-adjusted median home value was in the top third percentile of all tracts within a metro area.
-
+1.  An increase in the tract's educational attainment, as measured by the percentage of residents age 25 and over holding bachelor's degrees, was in the top third percentile of all tracts within a metro area.
+2.  A tract's median home value increase when adjusted for inflation.
+3.  The percentage increase in a tract's inflation-adjusted median home value was in the top third percentile of all tracts within a metro area.
 
 In order to replicate this method using the application, in **Define Indicators** select:
 
-- `Median Household Income` eligibility threshold = 0.4, determination threshold  = 0
-- `Median Home Value` eligibility threshold = 0.4, determination threshold = 0.66
-- `Higher Education` eligibility threshold = 1, determination threshold = 0.75
+-   `Median Household Income` eligibility threshold = 0.4, determination threshold = 0
+-   `Median Home Value` eligibility threshold = 0.4, determination threshold = 0.66
+-   `Higher Education` eligibility threshold = 1, determination threshold = 0.75
 
-In **Select Indicators**, check only `Median Household Income`, `Median Home Value`, and `Higher Education`. 
+In **Select Indicators**, check only `Median Household Income`, `Median Home Value`, and `Higher Education`.
 
 Only tracts with all 3 positive indicators of gentrification would be classified as gentrified.
 
@@ -119,21 +116,17 @@ Only tracts with all 3 positive indicators of gentrification would be classified
 
 In 2019, the National Neighborhood Indicators Partnership released a "Guide to Measuring Neighborhood Change to Understand and Prevent Displacement".
 
-This <a href="https://www.urban.org/sites/default/files/publication/100135/guide_to_measuring_neighborhood_change_to_understand_and_prevent_displacement.pdf" target="_blank">document</a> provides a guide which helps users consider analytic approaches, indicators, and data sources to measure neighborhood change as specified for the community to prevent displacement. 
+This <a href="https://www.urban.org/sites/default/files/publication/100135/guide_to_measuring_neighborhood_change_to_understand_and_prevent_displacement.pdf" target="_blank">document</a> provides a guide which helps users consider analytic approaches, indicators, and data sources to measure neighborhood change as specified for the community to prevent displacement.
 
 This dashboard can help with decisions around a few key considerations when creating a measurement approach around gentrification. For instance:
 
-1. **Geography:** There are two levels of geography researchers need to consider when identifying gentrifying neighborhoods: 1) the geographic unit of analysis and 2) the geographic scope. The unit analysis might be thought of as a "neighborhood unit" - often times this is practically defined at the census block, census tract, or zip code level, and reflect the level at which a particular intervention might be implemented. The geographic scope is the larger boundary which defines the set of all neighborhoods that each unit is compared to in order to understand the sense of relative change. 
-Our tool allows for a dynamic selection of the geographic scope, though the use of Census Places. Users can use the multiple-select to build up the geographies to include in the overall boundary, allowing for a wider base of comparison. This tool does not, however, allow the user to change the unit of analysis, and instead is fixed at the census tract level, primarily due to the geographic granularity of other datasets within the tool.
+1.  **Geography:** There are two levels of geography researchers need to consider when identifying gentrifying neighborhoods: 1) the geographic unit of analysis and 2) the geographic scope. The unit analysis might be thought of as a "neighborhood unit" - often times this is practically defined at the census block, census tract, or zip code level, and reflect the level at which a particular intervention might be implemented. The geographic scope is the larger boundary which defines the set of all neighborhoods that each unit is compared to in order to understand the sense of relative change. Our tool allows for a dynamic selection of the geographic scope, though the use of Census Places. Users can use the multiple-select to build up the geographies to include in the overall boundary, allowing for a wider base of comparison. This tool does not, however, allow the user to change the unit of analysis, and instead is fixed at the census tract level, primarily due to the geographic granularity of other datasets within the tool.
 
-2. **Time Period:** This tool contains 6 decades of decennial demographic and neighborhood data, from 1970 to 2020. Users can select comparisons at the beginning and end of decade intervals. One limitation of this tool is that it does not enable the selection of individual years of data, as such it would not be able to detect "rapidly" gentrifying area, or change that is happening over the course if a couple years. 
+2.  **Time Period:** This tool contains 6 decades of decennial demographic and neighborhood data, from 1970 to 2020. Users can select comparisons at the beginning and end of decade intervals. One limitation of this tool is that it does not enable the selection of individual years of data, as such it would not be able to detect "rapidly" gentrifying area, or change that is happening over the course if a couple years.
 
-3. **Indicators and Data Sources:** The NHIP guide contains organizes indicators and data sources by Resident Characteristics, Housing Markets and Conditions, Economic Activity and Investment, and Neighborhood Conditions. This tool contains 8 indicators which primarily fall under Resident Characteristics and Housing Markets and Conditions. 
-
+3.  **Indicators and Data Sources:** The NHIP guide contains organizes indicators and data sources by Resident Characteristics, Housing Markets and Conditions, Economic Activity and Investment, and Neighborhood Conditions. This tool contains 8 indicators which primarily fall under Resident Characteristics and Housing Markets and Conditions.
 
 <hr>
-
-
 
 # Explore Indicators
 
@@ -833,8 +826,6 @@ To use this section, select a health outcome of interest from the drop-down list
 
 The violin plots below show the relationship between the distribution of the chosen health outcome (Y-axis) and the number of Positive Gentrification Indicators (X-axis for the figure on the left) and the number of Still Eligible Gentrification Indicator (X-axis for the figure on the right).
 
-
-
 ```{r, echo = FALSE}
 outcomes <- outcomes %>%
   select(GEOID, `Life Expectancy`,
@@ -957,13 +948,14 @@ splitLayout(
 # Evaluate Methods
 
 ## Moran's I
-Moran's I is a measure of spatial autocorrelation, or in this context, how similar one tract is to its neighbors. Moran's I can take on values between [-1, 1], such that a value of 
 
-- -1: indicates a **dispersed** spatial process (imagine checkerboard)
-- 0: indicates a **random** spatial process (imagine TV static)
-- 1: indicates a **clustered** spatial process (imagine circle on a background)
+Moran's I is a measure of spatial autocorrelation, or in this context, how similar one tract is to its neighbors. Moran's I can take on values between [-1, 1], such that a value of
 
-With the selected gentrification indicators defined above, we can examine Moran's I values for our gentrified labels. 
+-   -1: indicates a **dispersed** spatial process (imagine checkerboard)
+-   0: indicates a **random** spatial process (imagine TV static)
+-   1: indicates a **clustered** spatial process (imagine circle on a background)
+
+With the selected gentrification indicators defined above, we can examine Moran's I values for our gentrified labels.
 
 In the context of this tool, we are testing the null hypothesis that the number of gentrification indicators is randomly dispersed (I = 0).
 
@@ -1038,7 +1030,8 @@ renderText(paste(
 
 ## Urban Displacement Typologies
 
-Compare your selected method with Urban Displacement's Typologies. 
+Compare your selected method with Urban Displacement's Typologies.
+
 ```{r, echo = FALSE}
 ## TODO download csvs from gitlab and read from files
 udp_gitlab <- "raw data/UrbanDisplacementTypologies/"
@@ -1222,8 +1215,6 @@ renderTmap({
 })
 ```
 
-
-
 ```{r, echo = FALSE}
 
 inputPanel(
@@ -1297,4 +1288,5 @@ renderPlot({
 ```
 
 <hr>
+
 <hr>
